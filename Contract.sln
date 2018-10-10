@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BCPContract", "BCPContract\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BCTContract", "BCTContract\BCTContract.csproj", "{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NeoBankContract", "NeoBankContract\NeoBankContract.csproj", "{C4C7294D-862B-440D-AAED-0478C2593256}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C4C7294D-862B-440D-AAED-0478C2593256}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C4C7294D-862B-440D-AAED-0478C2593256}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4C7294D-862B-440D-AAED-0478C2593256}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C4C7294D-862B-440D-AAED-0478C2593256}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
