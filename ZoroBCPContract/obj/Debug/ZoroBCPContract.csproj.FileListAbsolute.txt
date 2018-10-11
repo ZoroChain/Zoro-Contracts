@@ -1,0 +1,7 @@
+E:\Zoro\Contract\ZoroBCPContract\bin\Debug\ZoroBCPContract.dll
+E:\Zoro\Contract\ZoroBCPContract\bin\Debug\ZoroBCPContract.pdb
+E:\Zoro\Contract\ZoroBCPContract\bin\Debug\Neo.SmartContract.Framework.dll
+E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.csproj.CoreCompileInputs.cache
+E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.csproj.CopyComplete
+E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.dll
+E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.pdb
