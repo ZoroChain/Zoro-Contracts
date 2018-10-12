@@ -43,7 +43,7 @@ namespace ZoroBCPContract
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "bcp-test";
+            var magicstr = "zoro-bcp-test";
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 return false;

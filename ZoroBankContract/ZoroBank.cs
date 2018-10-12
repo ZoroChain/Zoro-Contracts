@@ -17,7 +17,7 @@ namespace ZoroBankContract
         [DisplayName("getmoneyback")]
         public static event deleGetMoneyBack GetMoneyBack;
 
-        [Appcall("6e416e46a8652eb746e4703a2df9c36981dbf91a")]
+        [Appcall("3a451794f2d16d0d8d1d7c49af11250caf17ac5f")]
         static extern object zoroBcpCall(string method, object[] arr);
 
         static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AbN2K2trYzgx8WMg2H7U7JHH6RQVzz2fnx");//管理员
@@ -83,9 +83,15 @@ namespace ZoroBankContract
                     byte[] who = (byte[])args[0];
                     BigInteger amount = (BigInteger)args[1];
                     var key = new byte[] { 0x11 }.Concat(who);
+                    StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
                     StorageMap canBackMoneyMap = Storage.CurrentContext.CreateMap(nameof(canBackMoneyMap));
+                    var depositMoney = depositBalanceMap.Get(key).AsBigInteger();
                     var money = canBackMoneyMap.Get(key).AsBigInteger();
+                    if (amount > depositMoney)
+                        return false;
+                    depositMoney -= amount;
                     money += amount;
+                    depositBalanceMap.Put(key, depositMoney);
                     canBackMoneyMap.Put(key, money);
                 }
 

@@ -86,9 +86,15 @@ namespace NeoBankContract
                     byte[] who = (byte[]) args[0];
                     BigInteger amount = (BigInteger) args[1];
                     var key = new byte[] {0x11}.Concat(who);
+                    StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
                     StorageMap canBackMoneyMap = Storage.CurrentContext.CreateMap(nameof(canBackMoneyMap));
+                    var depositMoney = depositBalanceMap.Get(key).AsBigInteger();
                     var money = canBackMoneyMap.Get(key).AsBigInteger();
+                    if (amount > depositMoney)
+                        return false;
                     money += amount;
+                    depositMoney -= amount;
+                    depositBalanceMap.Put(key, depositMoney);
                     canBackMoneyMap.Put(key, money);
                 }
 

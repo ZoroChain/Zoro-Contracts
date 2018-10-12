@@ -22,3 +22,11 @@ E:\Zoro\BlaCatContract\BCPContract\obj\Debug\BCPContract.csproj.CoreCompileInput
 E:\Zoro\BlaCatContract\BCPContract\obj\Debug\BCPContract.csproj.CopyComplete
 E:\Zoro\BlaCatContract\BCPContract\obj\Debug\BcpContract.dll
 E:\Zoro\BlaCatContract\BCPContract\obj\Debug\BcpContract.pdb
+E:\Zoro\Contract\BCPContract\bin\Debug\BcpContract.dll
+E:\Zoro\Contract\BCPContract\bin\Debug\BcpContract.pdb
+E:\Zoro\Contract\BCPContract\bin\Debug\Neo.SmartContract.Framework.dll
+E:\Zoro\Contract\BCPContract\obj\Debug\BCPContract.csprojAssemblyReference.cache
+E:\Zoro\Contract\BCPContract\obj\Debug\BCPContract.csproj.CoreCompileInputs.cache
+E:\Zoro\Contract\BCPContract\obj\Debug\BCPContract.csproj.CopyComplete
+E:\Zoro\Contract\BCPContract\obj\Debug\BcpContract.dll
+E:\Zoro\Contract\BCPContract\obj\Debug\BcpContract.pdb

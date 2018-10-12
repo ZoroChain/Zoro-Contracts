@@ -5,3 +5,4 @@ E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.csproj.CoreCompileInp
 E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.csproj.CopyComplete
 E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.dll
 E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.pdb
+E:\Zoro\Contract\ZoroBCPContract\obj\Debug\ZoroBCPContract.csprojAssemblyReference.cache

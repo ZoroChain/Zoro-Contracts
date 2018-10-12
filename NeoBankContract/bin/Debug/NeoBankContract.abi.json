@@ -1,29 +1,8 @@
 {
-    "hash":"0x3a451794f2d16d0d8d1d7c49af11250caf17ac5f",
+    "hash":"0x78f0ffad20d31ee1dd9d77d598d42bad4f639695",
     "entrypoint":"Main",
     "functions":
     [
-        {
-            "name":"name",
-            "parameters":
-            [
-            ],
-            "returntype":"String"
-        },
-        {
-            "name":"symbol",
-            "parameters":
-            [
-            ],
-            "returntype":"String"
-        },
-        {
-            "name":"decimals",
-            "parameters":
-            [
-            ],
-            "returntype":"Integer"
-        },
         {
             "name":"Main",
             "parameters":
@@ -38,29 +17,29 @@
                 }
             ],
             "returntype":"Any"
-        },
-        {
-            "name":"IsPayable",
-            "parameters":
-            [
-                {
-                    "name":"to",
-                    "type":"ByteArray"
-                }
-            ],
-            "returntype":"Boolean"
         }
     ],
     "events":
     [
         {
-            "name":"transfer",
+            "name":"deposit",
             "parameters":
             [
                 {
                     "name":"from",
                     "type":"ByteArray"
                 },
+                {
+                    "name":"value",
+                    "type":"Integer"
+                }
+            ],
+            "returntype":"Void"
+        },
+        {
+            "name":"getmoneyback",
+            "parameters":
+            [
                 {
                     "name":"to",
                     "type":"ByteArray"
