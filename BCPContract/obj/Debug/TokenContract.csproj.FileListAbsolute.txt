@@ -1,7 +1,0 @@
-E:\Zoro\BlaCatContract\TokenContract\bin\Debug\BcpContract.dll
-E:\Zoro\BlaCatContract\TokenContract\bin\Debug\BcpContract.pdb
-E:\Zoro\BlaCatContract\TokenContract\bin\Debug\Neo.SmartContract.Framework.dll
-E:\Zoro\BlaCatContract\TokenContract\obj\Debug\TokenContract.csproj.CoreCompileInputs.cache
-E:\Zoro\BlaCatContract\TokenContract\obj\Debug\TokenContract.csproj.CopyComplete
-E:\Zoro\BlaCatContract\TokenContract\obj\Debug\BcpContract.dll
-E:\Zoro\BlaCatContract\TokenContract\obj\Debug\BcpContract.pdb
