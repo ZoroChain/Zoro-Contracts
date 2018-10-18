@@ -24,20 +24,21 @@ namespace BcpContract
             public BigInteger value;
         }
 
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AbN2K2trYzgx8WMg2H7U7JHH6RQVzz2fnx");
+		//管理员账户，改成自己测试用的的
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("AcQLYjGbQU2bEQ8RKFXUcf8XvromfUQodq");
 
         public static string name()
         {
-            return "BlaCat Coin";
+            return "BlaCat Coin";//名称
         }
 
         public static string symbol()
         {
-            return "BCP";
+            return "BCP";//简称
         }
 
         private const ulong factor = 100000000;//精度
-        private const ulong totalCoin = 20 * 100000000 * factor;
+        private const ulong totalCoin = 20 * 100000000 * factor;//总量
 
         public static byte decimals()
         {

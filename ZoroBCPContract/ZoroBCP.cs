@@ -43,7 +43,7 @@ namespace ZoroBCPContract
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "zoro-bcp-test";
+            var magicstr = "zoro-bcp test";
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 return false;
@@ -70,12 +70,12 @@ namespace ZoroBCPContract
                         return false;
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
-                    byte[] to = (byte[])args[0];//Bank 合约地址、Zoro上的BCP直接发到Bank里面
+                    byte[] to = (byte[])args[0];//Bank 合约地址、Zoro 上的 BCP 直接发到 Bank 里面
                     byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
                     if (total_supply.Length != 0)
                         return false;
-                    var keySuperAdmin = new byte[] { 0x11 }.Concat(superAdmin);
-                    Storage.Put(Storage.CurrentContext, keySuperAdmin, totalCoin);
+                    var keyTo = new byte[] { 0x11 }.Concat(to);
+                    Storage.Put(Storage.CurrentContext, keyTo, totalCoin);
                     Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
 
                     Transferred(null, to, totalCoin);

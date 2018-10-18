@@ -17,7 +17,15 @@ namespace ZoroBankContract
         [DisplayName("getmoneyback")]
         public static event deleGetMoneyBack GetMoneyBack;
 
-        [Appcall("3a451794f2d16d0d8d1d7c49af11250caf17ac5f")]
+        public delegate void deleSendMoney(byte[] to, BigInteger value);
+        [DisplayName("sendmoney")]
+        public static event deleSendMoney SendMoney;
+
+        public delegate void deleSetCanBack(byte[] to, BigInteger value);
+        [DisplayName("setcanback")]
+        public static event deleSetCanBack SetCanBack;
+
+        [Appcall("e30e5f8aa1b5784570ec38dada546536187e0508")]
         static extern object zoroBcpCall(string method, object[] arr);
 
         static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AbN2K2trYzgx8WMg2H7U7JHH6RQVzz2fnx");//管理员
@@ -130,6 +138,38 @@ namespace ZoroBankContract
                         //notify
                         GetMoneyBack(key, amount);
                         return true;
+                    }
+
+                    return false;
+                }
+
+                if (method == "sendmoney") //发钱
+                {
+                    if (args.Length != 3)
+                        return false;
+                    if (!Runtime.CheckWitness(superAdmin))
+                        return false;
+                    byte[] txid = (byte[])args[0];
+                    byte[] who = (byte[])args[1];
+                    var keytx = new byte[] { 0x12 }.Concat(txid);
+                    StorageMap sendMoneyMap = Storage.CurrentContext.CreateMap(nameof(sendMoneyMap));
+                    var v = sendMoneyMap.Get(keytx).AsBigInteger();
+                    if (v == 0)
+                    {
+                        BigInteger amount = (BigInteger) args[2];
+                        object[] transArr = new object[3];
+                        transArr[0] = ExecutionEngine.ExecutingScriptHash;
+                        transArr[1] = who;
+                        transArr[2] = amount;
+
+                        bool isSuccess = (bool) zoroBcpCall("transfer_app", transArr);
+                        if (isSuccess)
+                        {
+                            sendMoneyMap.Put(keytx, 1);
+                            //notify
+                            SendMoney(who, amount);
+                            return true;
+                        }
                     }
 
                     return false;
