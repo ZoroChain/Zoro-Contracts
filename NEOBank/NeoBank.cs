@@ -125,31 +125,6 @@ namespace NEOBank
 
         }
 
-        public static bool GetReturn(byte[] txid, byte[] returnvalue)
-        {
-            var key = new byte[] { 0x11 }.Concat(txid);
-            if (returnvalue.Length == 0)
-                return false;
-            StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
-            var data = callStateMap.Get(key);
-            if (data.Length == 0)
-                return false;
-            CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
-            if (s.state == 1)
-            {
-                if (!Runtime.CheckWitness(s.witnessreturn))
-                    return false;
-                s.returnvalue = returnvalue;
-                s.state = 2;
-                data = Neo.SmartContract.Framework.Helper.Serialize(s);
-                callStateMap.Put(key, data);
-                //notify
-                GetReturned(txid, returnvalue);
-                return true;
-            }
-            return false;
-        }
-
         public static bool Deposit(byte[] txid)
         {
             var tx = new TransferInfo();
@@ -181,11 +156,10 @@ namespace NEOBank
 
                 return false;
             }
-            else
-            {
-                return false;
-            }
+            return false;
+
         }
+
 
         public static bool Exchange(byte[] witnesscall, byte[] witnessreturn, byte[] who, BigInteger amount)
         {
@@ -249,6 +223,31 @@ namespace NEOBank
                 CanCelled(txid);
             }
 
+            return false;
+        }
+
+        public static bool GetReturn(byte[] txid, byte[] returnvalue)
+        {
+            var key = new byte[] { 0x11 }.Concat(txid);
+            if (returnvalue.Length == 0)
+                return false;
+            StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
+            var data = callStateMap.Get(key);
+            if (data.Length == 0)
+                return false;
+            CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
+            if (s.state == 1)
+            {
+                if (!Runtime.CheckWitness(s.witnessreturn))
+                    return false;
+                s.returnvalue = returnvalue;
+                s.state = 2;
+                data = Neo.SmartContract.Framework.Helper.Serialize(s);
+                callStateMap.Put(key, data);
+                //notify
+                GetReturned(txid, returnvalue);
+                return true;
+            }
             return false;
         }
 
