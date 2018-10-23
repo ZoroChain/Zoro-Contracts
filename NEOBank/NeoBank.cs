@@ -267,5 +267,12 @@ namespace NEOBank
             public byte[] witnessreturn;//返回者
             public byte[] returnvalue;//返回值
         }
+
+        public class DepositInfo
+        {
+            public int state;//1 该笔存款未记录，2 已记录
+            public byte[] who;//存款人
+            public BigInteger value;//数量
+        }
     }
 }
