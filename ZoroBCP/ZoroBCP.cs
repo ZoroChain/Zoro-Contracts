@@ -66,22 +66,19 @@ namespace ZoroBCP
                     return decimals();
                 if (method == "deploy")
                 {
-                    if (args.Length != 2)
+                    if (args.Length != 1)
                         return false;
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
-                    byte[] to = (byte[])args[0];//Zoro 上的 BCP 直接发到兑换地址上
-                    BigInteger amount = (BigInteger)args[1];
-                    if (amount == 0)
-                        return false;
+                    byte[] to = (byte[]) args[0];
                     byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
-                    if (total_supply.Length == 0)
-                        Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
-                    var keyTo = new byte[] { 0x11 }.Concat(to);
-                    BigInteger value = Storage.Get(Storage.CurrentContext, keyTo).AsBigInteger();
-                    value += amount;
-                    Storage.Put(Storage.CurrentContext, keyTo, value);
-                    Transferred(null, to, amount);
+                    if (total_supply.Length != 0)
+                        return false;
+                    var toKey = new byte[] { 0x11 }.Concat(to);
+                    Storage.Put(Storage.CurrentContext, toKey, totalCoin);
+                    Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
+
+                    Transferred(null, to, totalCoin);
                 }
 
                 if (method == "balanceOf")
