@@ -21,12 +21,15 @@ namespace NEOBank
         [DisplayName("cancel")]
         public static event deleCancel CanCelled;
 
-        public delegate void deleGetReturn(byte[] txid,int returnvalue);
+        public delegate void deleGetReturn(byte[] txid, int returnvalue);
         [DisplayName("getreturn")]
         public static event deleGetReturn GetReturned;
 
         [Appcall("04e31cee0443bb916534dad2adf508458920e66d")]
         static extern object bcpCall(string method, object[] arr);
+
+        //管理员账户，改成自己测试用的的
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
 
         public static object Main(string method, object[] args)
         {
@@ -52,20 +55,19 @@ namespace NEOBank
                     return Deposit(txid);
                 }
 
-                if (method == "exchange")//兑换请求、收到返回前可以撤销
-                { 
-                    if (args.Length != 2)
+                if (method == "exchange") //兑换请求、收到返回前可以撤销
+                {
+                    if (args.Length != 3)
                         return false;
-                    byte[] witnesscall = (byte[]) args[0];
-                    byte[] witnessreturn = (byte[]) args[1];
-                    byte[] who = (byte[])args[2];
-                    BigInteger amount = (BigInteger)args[3];
-                    return Exchange(witnesscall, witnessreturn, who, amount);
+                    byte[] witnessreturn = (byte[]) args[0];
+                    byte[] who = (byte[]) args[1];
+                    BigInteger amount = (BigInteger) args[2];
+                    return Exchange(witnessreturn, who, amount);
                 }
 
                 if (method == "cancel") //取消兑换
                 {
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     return Cancel(txid);
                 }
 
@@ -85,7 +87,7 @@ namespace NEOBank
                     return depositBalanceMap.Get(key).AsBigInteger();
                 }
 
-                if (method == "getcallstate")
+                if (method == "getcallstate")//获取调用状态
                 {
                     byte[] txid = (byte[])args[0];
                     return GetCallState(txid);
@@ -93,17 +95,16 @@ namespace NEOBank
 
                 if (method == "getmoneyback") //取回钱
                 {
-                    if (args.Length != 2)
+                    if (args.Length != 3)
                         return false;
-                    byte[] who = (byte[])args[0];
-                    BigInteger amount = (BigInteger)args[1];
-                    return GetMoneyBack(who, amount);
+                    byte[] txid = (byte[]) args[0];
+                    byte[] who = (byte[])args[1];
+                    BigInteger amount = (BigInteger)args[2];
+                    return GetMoneyBack(txid, who, amount);
                 }
-
             }
 
             return false;
-
         }
 
         /// <summary>
@@ -131,13 +132,10 @@ namespace NEOBank
                     var key = new byte[] { 0x11 }.Concat(tx.@from);
                     var money = depositBalanceMap.Get(key).AsBigInteger();
                     money += tx.value;
-
                     depositBalanceMap.Put(key, money);
                     depositBalanceMap.Put(keytx, 1);
-
                     return true;
                 }
-
                 return false;
             }
             return false;
@@ -145,23 +143,22 @@ namespace NEOBank
         }
 
         /// <summary>
-        /// 兑换请求
+        /// 兑换请求，质押需要跨链的资产
         /// </summary>
-        /// <param name="witnesscall">请求者见证</param>
         /// <param name="witnessreturn">接收返回见证者</param>
         /// <param name="who">兑换人</param>
         /// <param name="amount">金额</param>
         /// <returns></returns>
-        public static bool Exchange(byte[] witnesscall, byte[] witnessreturn, byte[] who, BigInteger amount)
+        public static bool Exchange(byte[] witnessreturn, byte[] who, BigInteger amount)
         {
-            if (!Runtime.CheckWitness(witnesscall))
+            if (!Runtime.CheckWitness(who))
                 return false;
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-            var txidKey = new byte[] {0x11}.Concat(txid);
+            var txidKey = new byte[] { 0x11 }.Concat(txid);
 
             var v = new CallState();
             v.state = 1;
-            v.witnesscall = witnesscall;
+            v.witnesscall = who;
             v.witnessreturn = witnessreturn;
             v.returnvalue = 0;
             v.who = who;
@@ -188,13 +185,13 @@ namespace NEOBank
         }
 
         /// <summary>
-        /// 取消兑换请求
+        /// 取消兑换请求   需要发起者签名
         /// </summary>
         /// <param name="txid">兑换请求的 txid</param>
         /// <returns></returns>
         public static bool Cancel(byte[] txid)
         {
-            var key = new byte[] {0x11}.Concat(txid);
+            var key = new byte[] { 0x11 }.Concat(txid);
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
             var data = callStateMap.Get(key);
             if (data.Length == 0)
@@ -216,6 +213,7 @@ namespace NEOBank
                 depositBalanceMap.Put(whoKey, depositAmount);
                 exchangeAmountMap.Put(whoKey, exchangeAmount);
                 callStateMap.Delete(key);
+                //notify
                 CanCelled(txid);
                 return true;
             }
@@ -224,10 +222,10 @@ namespace NEOBank
         }
 
         /// <summary>
-        /// 接收返回
+        /// 接收返回  需要指定返回见证者签名
         /// </summary>
         /// <param name="txid">兑换请求的 txid</param>
-        /// <param name="returnvalue">返回值</param>
+        /// <param name="returnvalue">返回值,1 返回ture，0 返回 false，兑换被拒绝了 </param>
         /// <returns></returns>
         public static bool GetReturn(byte[] txid, int returnvalue)
         {
@@ -269,31 +267,41 @@ namespace NEOBank
         }
 
         /// <summary>
-        /// 反向操作、取回钱
+        /// 反向操作、取回钱，从跨链请求质押的资产中取回，需要管理员操作
         /// </summary>
+        /// <param name="txid">Zoro 兑换请求的 txid</param>
         /// <param name="who"></param>
         /// <param name="amount"></param>
         /// <returns></returns>
-        private static object GetMoneyBack(byte[] who, BigInteger amount)
+        private static object GetMoneyBack(byte[] txid, byte[] who, BigInteger amount)
         {
-            var key = new byte[] { 0x11 }.Concat(who);
-            StorageMap exchangeAmountMap = Storage.CurrentContext.CreateMap(nameof(exchangeAmountMap));
-            var money = exchangeAmountMap.Get(key).AsBigInteger();
-            if (money < amount)
+            if (!Runtime.CheckWitness(superAdmin))
                 return false;
-            object[] transArr = new object[3];
-            transArr[0] = ExecutionEngine.ExecutingScriptHash;
-            transArr[1] = who;
-            transArr[2] = amount;
-
-            bool isSuccess = (bool)bcpCall("transfer_app", transArr);
-            if (isSuccess)
+            var keytx = new byte[] { 0x12 }.Concat(txid);
+            StorageMap getMoneyBackMap = Storage.CurrentContext.CreateMap(nameof(getMoneyBackMap));
+            var v = getMoneyBackMap.Get(keytx).AsBigInteger();
+            if (v == 0)
             {
-                money -= amount;
-                exchangeAmountMap.Put(key, money);
-                //notify
-                GetMoneyBack(key, amount);
-                return true;
+                var key = new byte[] { 0x11 }.Concat(who);
+                StorageMap exchangeAmountMap = Storage.CurrentContext.CreateMap(nameof(exchangeAmountMap));
+                var money = exchangeAmountMap.Get(key).AsBigInteger();
+                if (money < amount)
+                    return false;
+                object[] transArr = new object[3];
+                transArr[0] = ExecutionEngine.ExecutingScriptHash;
+                transArr[1] = who;
+                transArr[2] = amount;
+
+                bool isSuccess = (bool)bcpCall("transfer_app", transArr);
+                if (isSuccess)
+                {
+                    money -= amount;
+                    exchangeAmountMap.Put(key, money);
+                    getMoneyBackMap.Put(keytx, 1);
+                    //notify
+                    GetMoneyBacked(who, amount);
+                    return true;
+                }
             }
 
             return false;

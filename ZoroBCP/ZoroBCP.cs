@@ -21,7 +21,7 @@ namespace ZoroBCP
             public BigInteger value;
         }
 
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AbN2K2trYzgx8WMg2H7U7JHH6RQVzz2fnx");
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
 
         public static string name()
         {
@@ -71,15 +71,17 @@ namespace ZoroBCP
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
                     byte[] to = (byte[])args[0];//Zoro 上的 BCP 直接发到兑换地址上
-                    byte[] amount = (byte[]) args[1];
-                    
-                    if (total_supply.Length != 0)
+                    BigInteger amount = (BigInteger)args[1];
+                    if (amount == 0)
                         return false;
+                    byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+                    if (total_supply.Length == 0)
+                        Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
                     var keyTo = new byte[] { 0x11 }.Concat(to);
-                    Storage.Put(Storage.CurrentContext, keyTo, totalCoin);
-                    Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
-
-                    Transferred(null, to, totalCoin);
+                    BigInteger value = Storage.Get(Storage.CurrentContext, keyTo).AsBigInteger();
+                    value += amount;
+                    Storage.Put(Storage.CurrentContext, keyTo, value);
+                    Transferred(null, to, amount);
                 }
 
                 if (method == "balanceOf")
