@@ -64,7 +64,7 @@ namespace ZoroBCP
                     return symbol();
                 if (method == "decimals")
                     return decimals();
-                if (method == "deploy")
+                if (method == "deploy") //发行到zoro bank合约地址上
                 {
                     if (args.Length != 1)
                         return false;

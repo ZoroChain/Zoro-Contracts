@@ -4,6 +4,7 @@ using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.ComponentModel;
 using System.Numerics;
+using System.Runtime.Remoting.Messaging;
 
 namespace ZoroBank
 {
@@ -20,6 +21,10 @@ namespace ZoroBank
         public delegate void deleCancel(byte[] txid);
         [DisplayName("cancel")]
         public static event deleCancel CanCelled;
+
+        public delegate void deleResponse(byte[] txid,int v);
+        [DisplayName("response")]
+        public static event deleResponse Responsed;
 
         public delegate void deleGetReturn(byte[] txid, int returnvalue);
         [DisplayName("getreturn")]
@@ -77,6 +82,15 @@ namespace ZoroBank
                     int returnvalue = (int)args[1];
                     return GetReturn(txid, returnvalue);
                 }
+
+                if (method == "response") //处理请求、输出响应
+                {
+                    byte[] txid = (byte[]) args[0];
+                    byte[] who = (byte[]) args[1];
+                    BigInteger amount = (BigInteger) args[3];
+                    return Response(txid, who, amount);
+                }
+
                 if (method == "balanceOf") //查存款数
                 {
                     if (args.Length != 1)
@@ -93,7 +107,7 @@ namespace ZoroBank
                     return GetCallState(txid);
                 }
 
-                if (method == "getmoneyback") //兑换完发钱
+                if (method == "sendmoney") //兑换完发钱
                 {
                     if (args.Length != 3)
                         return false;
@@ -222,6 +236,14 @@ namespace ZoroBank
                 return true;
             }
 
+            return false;
+        }
+
+
+        private static bool Response(byte[] txid, byte[] who, BigInteger amount)
+        {
+            //notify
+            Responsed(txid, 1);
             return false;
         }
 

@@ -93,7 +93,7 @@ namespace NEOBank
                     return GetCallState(txid);
                 }
 
-                if (method == "getmoneyback") //取回钱
+                if (method == "getmoneyback") //兑换完成后发钱
                 {
                     if (args.Length != 3)
                         return false;
