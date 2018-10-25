@@ -233,7 +233,12 @@ namespace NEOBank
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
             var data = callStateMap.Get(key);
             if (data.Length == 0)
+            {
+                //notify
+                GetReturned(txid, 2);//被取消了
                 return false;
+            }
+
             CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
             if (s.state == 1)
             {
