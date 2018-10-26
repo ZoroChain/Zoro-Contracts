@@ -1,7 +1,0 @@
-E:\Zoro\Contract\Btc-Nep5\bin\Debug\BitCoin-Nep5.dll
-E:\Zoro\Contract\Btc-Nep5\bin\Debug\BitCoin-Nep5.pdb
-E:\Zoro\Contract\Btc-Nep5\bin\Debug\Neo.SmartContract.Framework.dll
-E:\Zoro\Contract\Btc-Nep5\obj\Debug\BitCoin-Nep5.csproj.CoreCompileInputs.cache
-E:\Zoro\Contract\Btc-Nep5\obj\Debug\BitCoin-Nep5.csproj.CopyComplete
-E:\Zoro\Contract\Btc-Nep5\obj\Debug\BitCoin-Nep5.dll
-E:\Zoro\Contract\Btc-Nep5\obj\Debug\BitCoin-Nep5.pdb

@@ -1,7 +1,0 @@
-E:\Zoro\Contract\ZoroBankContract\bin\Debug\ZoroBankContract.dll
-E:\Zoro\Contract\ZoroBankContract\bin\Debug\ZoroBankContract.pdb
-E:\Zoro\Contract\ZoroBankContract\bin\Debug\Neo.SmartContract.Framework.dll
-E:\Zoro\Contract\ZoroBankContract\obj\Debug\ZoroBankContract.csproj.CoreCompileInputs.cache
-E:\Zoro\Contract\ZoroBankContract\obj\Debug\ZoroBankContract.csproj.CopyComplete
-E:\Zoro\Contract\ZoroBankContract\obj\Debug\ZoroBankContract.dll
-E:\Zoro\Contract\ZoroBankContract\obj\Debug\ZoroBankContract.pdb
