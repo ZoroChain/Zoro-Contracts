@@ -96,7 +96,7 @@ namespace ZoroBank
                 {
                     byte[] txid = (byte[]) args[0];
                     byte[] who = (byte[]) args[1];
-                    BigInteger amount = (BigInteger) args[3];
+                    BigInteger amount = (BigInteger) args[2];
                     return Response(txid, who, amount);
                 }
 
@@ -106,9 +106,8 @@ namespace ZoroBank
                     if (args.Length != 1)
                         return 0;
                     byte[] who = (byte[])args[0];
-                    var key = new byte[] { 0x11 }.Concat(who);
                     StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
-                    return depositBalanceMap.Get(key).AsBigInteger();
+                    return depositBalanceMap.Get(who).AsBigInteger();
                 }
 
                 //获取请求状态
@@ -263,7 +262,7 @@ namespace ZoroBank
         {
             //notify
             Responsed(txid, 1);
-            return false;
+            return true;
         }
 
         /// <summary>

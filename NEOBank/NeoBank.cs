@@ -21,6 +21,10 @@ namespace NEOBank
         [DisplayName("cancel")]
         public static event deleCancel CanCelled;
 
+        public delegate void deleResponse(byte[] txid, int v);
+        [DisplayName("response")]
+        public static event deleResponse Responsed;
+
         public delegate void deleGetReturn(byte[] txid, int returnvalue);
         [DisplayName("getreturn")]
         public static event deleGetReturn GetReturned;
@@ -69,6 +73,14 @@ namespace NEOBank
                 {
                     byte[] txid = (byte[])args[0];
                     return Cancel(txid);
+                }
+
+                if (method == "response")
+                {
+                    byte[] txid = (byte[])args[0];
+                    byte[] who = (byte[])args[1];
+                    BigInteger amount = (BigInteger)args[2];
+                    return Response(txid, who, amount);
                 }
 
                 if (method == "getreturn") //接收返回
@@ -212,6 +224,20 @@ namespace NEOBank
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 接受请求，输出响应
+        /// </summary>
+        /// <param name="txid"></param>
+        /// <param name="who"></param>
+        /// <param name="amount"></param>
+        /// <returns></returns>
+        private static bool Response(byte[] txid, byte[] who, BigInteger amount)
+        {
+            //notify
+            Responsed(txid, 1);
+            return true;
         }
 
         /// <summary>
