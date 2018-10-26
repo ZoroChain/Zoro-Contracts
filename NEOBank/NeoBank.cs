@@ -115,9 +115,8 @@ namespace NEOBank
         public static bool Deposit(byte[] txid)
         {
             var tx = new TransferInfo();
-            var keytx = new byte[] { 0x12 }.Concat(txid);
             StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
-            var v = depositBalanceMap.Get(keytx).AsBigInteger();
+            var v = depositBalanceMap.Get(txid).AsBigInteger();
             if (v == 0)
             {
                 object[] ob = new object[1];
@@ -129,11 +128,10 @@ namespace NEOBank
                     return false;
                 if (tx.to.AsBigInteger() == ExecutionEngine.ExecutingScriptHash.AsBigInteger())
                 {
-                    var key = new byte[] { 0x11 }.Concat(tx.@from);
-                    var money = depositBalanceMap.Get(key).AsBigInteger();
+                    var money = depositBalanceMap.Get(tx.@from).AsBigInteger();
                     money += tx.value;
-                    depositBalanceMap.Put(key, money);
-                    depositBalanceMap.Put(keytx, 1);
+                    depositBalanceMap.Put(tx.@from, money);
+                    depositBalanceMap.Put(txid, 1);
                     return true;
                 }
                 return false;
@@ -154,8 +152,7 @@ namespace NEOBank
             if (!Runtime.CheckWitness(who))
                 return false;
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-            var txidKey = new byte[] { 0x11 }.Concat(txid);
-
+            
             var v = new CallState();
             v.state = 1;
             v.witnesscall = who;
@@ -166,19 +163,17 @@ namespace NEOBank
             var data = Neo.SmartContract.Framework.Helper.Serialize(v);
 
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
-            callStateMap.Put(txidKey, data);
-
-            var whoKey = new byte[] { 0x11 }.Concat(who);
             StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
             StorageMap exchangeAmountMap = Storage.CurrentContext.CreateMap(nameof(exchangeAmountMap));
-            var depositAmount = depositBalanceMap.Get(whoKey).AsBigInteger();
-            var exchangeAmount = exchangeAmountMap.Get(whoKey).AsBigInteger();
+            var depositAmount = depositBalanceMap.Get(who).AsBigInteger();
+            var exchangeAmount = exchangeAmountMap.Get(who).AsBigInteger();
             if (exchangeAmount > depositAmount)
                 return false;
             exchangeAmount += amount;
             depositAmount -= amount;
-            depositBalanceMap.Put(whoKey, depositAmount);
-            exchangeAmountMap.Put(whoKey, exchangeAmount);
+            callStateMap.Put(txid, data);
+            depositBalanceMap.Put(who, depositAmount);
+            exchangeAmountMap.Put(who, exchangeAmount);
             //notify
             Exchanged(txid, who, amount);
             return true;
@@ -191,9 +186,8 @@ namespace NEOBank
         /// <returns></returns>
         public static bool Cancel(byte[] txid)
         {
-            var key = new byte[] { 0x11 }.Concat(txid);
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
-            var data = callStateMap.Get(key);
+            var data = callStateMap.Get(txid);
             if (data.Length == 0)
                 return false;
             CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
@@ -201,18 +195,17 @@ namespace NEOBank
             {
                 if (!Runtime.CheckWitness(s.witnesscall))
                     return false;
-                var whoKey = new byte[] { 0x11 }.Concat(s.who);
                 StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
                 StorageMap exchangeAmountMap = Storage.CurrentContext.CreateMap(nameof(exchangeAmountMap));
-                var depositAmount = depositBalanceMap.Get(whoKey).AsBigInteger();
-                var exchangeAmount = exchangeAmountMap.Get(whoKey).AsBigInteger();
+                var depositAmount = depositBalanceMap.Get(s.who).AsBigInteger();
+                var exchangeAmount = exchangeAmountMap.Get(s.who).AsBigInteger();
                 if (exchangeAmount < s.value)
                     return false;
                 exchangeAmount -= s.value;
                 depositAmount += s.value;
-                depositBalanceMap.Put(whoKey, depositAmount);
-                exchangeAmountMap.Put(whoKey, exchangeAmount);
-                callStateMap.Delete(key);
+                depositBalanceMap.Put(s.who, depositAmount);
+                exchangeAmountMap.Put(s.who, exchangeAmount);
+                callStateMap.Delete(txid);
                 //notify
                 CanCelled(txid);
                 return true;
@@ -229,14 +222,13 @@ namespace NEOBank
         /// <returns></returns>
         public static bool GetReturn(byte[] txid, int returnvalue)
         {
-            var key = new byte[] { 0x11 }.Concat(txid);
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
-            var data = callStateMap.Get(key);
+            var data = callStateMap.Get(txid);
             if (data.Length == 0)
             {
                 //notify
                 GetReturned(txid, 2);//被取消了
-                return false;
+                return true;
             }
 
             CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
@@ -244,26 +236,27 @@ namespace NEOBank
             {
                 if (!Runtime.CheckWitness(s.witnessreturn))
                     return false;
-                if (returnvalue == 0)
+                if (returnvalue == 0)//请求被拒绝
                 {
-                    var whoKey = new byte[] { 0x11 }.Concat(s.who);
                     StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
                     StorageMap exchangeAmountMap = Storage.CurrentContext.CreateMap(nameof(exchangeAmountMap));
-                    var depositAmount = depositBalanceMap.Get(whoKey).AsBigInteger();
-                    var exchangeAmount = exchangeAmountMap.Get(whoKey).AsBigInteger();
+                    var depositAmount = depositBalanceMap.Get(s.who).AsBigInteger();
+                    var exchangeAmount = exchangeAmountMap.Get(s.who).AsBigInteger();
                     if (exchangeAmount < s.value)
                         return false;
                     exchangeAmount -= s.value;
                     depositAmount += s.value;
-                    depositBalanceMap.Put(whoKey, depositAmount);
-                    exchangeAmountMap.Put(whoKey, exchangeAmount);
-                    callStateMap.Delete(key);
+                    depositBalanceMap.Put(s.who, depositAmount);
+                    exchangeAmountMap.Put(s.who, exchangeAmount);
+                    callStateMap.Delete(txid);
+                    //notify
+                    GetReturned(txid, returnvalue);
                     return true;
                 }
                 s.returnvalue = returnvalue;
                 s.state = 2;
                 data = Neo.SmartContract.Framework.Helper.Serialize(s);
-                callStateMap.Put(key, data);
+                callStateMap.Put(txid, data);
                 //notify
                 GetReturned(txid, returnvalue);
                 return true;

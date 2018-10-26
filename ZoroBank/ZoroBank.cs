@@ -277,7 +277,12 @@ namespace ZoroBank
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
             var data = callStateMap.Get(txid);
             if (data.Length == 0)
-                return false;
+            {
+                //notify
+                GetReturned(txid, 2); //被取消了
+                return true;
+            }
+
             CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
             if (s.state == 1)
             {
@@ -296,6 +301,8 @@ namespace ZoroBank
                     depositBalanceMap.Put(s.who, depositAmount);
                     exchangeAmountMap.Put(s.who, exchangeAmount);
                     callStateMap.Delete(txid);
+                    //notify
+                    GetReturned(txid, returnvalue);
                     return true;
                 }
                 s.returnvalue = returnvalue;
