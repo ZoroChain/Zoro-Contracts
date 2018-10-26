@@ -4,6 +4,7 @@ using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.ComponentModel;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 
 namespace NEOBank
 {
@@ -28,6 +29,10 @@ namespace NEOBank
         public delegate void deleGetReturn(byte[] txid, int returnvalue);
         [DisplayName("getreturn")]
         public static event deleGetReturn GetReturned;
+
+        public delegate void deleSend(byte[] to, BigInteger value);
+        [DisplayName("sendmoney")]
+        public static event deleSend Sended;
 
         [Appcall("04e31cee0443bb916534dad2adf508458920e66d")]
         static extern object bcpCall(string method, object[] arr);
@@ -75,6 +80,13 @@ namespace NEOBank
                     return Cancel(txid);
                 }
 
+                if (method == "getreturn") //接收返回
+                {
+                    byte[] txid = (byte[])args[0];
+                    int returnvalue = (int)args[1];
+                    return GetReturn(txid, returnvalue);
+                }
+
                 if (method == "response")
                 {
                     byte[] txid = (byte[])args[0];
@@ -83,20 +95,13 @@ namespace NEOBank
                     return Response(txid, who, amount);
                 }
 
-                if (method == "getreturn") //接收返回
-                {
-                    byte[] txid = (byte[])args[0];
-                    int returnvalue = (int)args[1];
-                    return GetReturn(txid, returnvalue);
-                }
                 if (method == "balanceOf") //查存款数
                 {
                     if (args.Length != 1)
                         return 0;
                     byte[] who = (byte[])args[0];
-                    var key = new byte[] { 0x11 }.Concat(who);
                     StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
-                    return depositBalanceMap.Get(key).AsBigInteger();
+                    return depositBalanceMap.Get(who).AsBigInteger();
                 }
 
                 if (method == "getcallstate")//获取调用状态
@@ -105,14 +110,21 @@ namespace NEOBank
                     return GetCallState(txid);
                 }
 
-                if (method == "getmoneyback") //兑换完成后发钱
+                if (method == "getmoneyback") //取回钱
+                {
+                    byte[] who = (byte[]) args[0];
+                    BigInteger amount = (BigInteger)args[1];
+                    return GetMoneyBack(who, amount);
+                }
+
+                if (method == "sendmoney")//兑换完成后发钱
                 {
                     if (args.Length != 3)
                         return false;
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     byte[] who = (byte[])args[1];
                     BigInteger amount = (BigInteger)args[2];
-                    return GetMoneyBack(txid, who, amount);
+                    return SendMoney(txid, who, amount);
                 }
             }
 
@@ -291,26 +303,61 @@ namespace NEOBank
         }
 
         /// <summary>
-        /// 反向操作、取回钱，从跨链请求质押的资产中取回，需要管理员操作
+        /// 取回放进 Bank 中的钱
+        /// </summary>
+        /// <param name="who">账户</param>
+        /// <param name="amount">金额</param>
+        /// <returns></returns>
+        private static object GetMoneyBack(byte[] who, BigInteger amount)
+        {
+            if (!Runtime.CheckWitness(who))
+                return false;
+            if (amount == 0)
+                return false;
+            StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
+            var money = depositBalanceMap.Get(who).AsBigInteger();
+            if (money < amount)
+                return false;
+            object[] transArr = new object[3];
+            transArr[0] = ExecutionEngine.ExecutingScriptHash;
+            transArr[1] = who;
+            transArr[2] = amount;
+            bool isSuccess = (bool)bcpCall("transfer_app", transArr);
+            if (isSuccess)
+            {
+                money -= amount;
+                if (money == 0)
+                {
+                    depositBalanceMap.Delete(who);
+                    //notify
+                    GetMoneyBacked(who, amount);
+                    return true;
+                }
+                depositBalanceMap.Put(who, money);
+                //notify
+                GetMoneyBacked(who, amount);
+                return true;
+            }
+
+            return false;
+        }
+
+
+        /// <summary>
+        /// 发钱，请求完成后转账
         /// </summary>
         /// <param name="txid">Zoro 兑换请求的 txid</param>
         /// <param name="who"></param>
         /// <param name="amount"></param>
         /// <returns></returns>
-        private static object GetMoneyBack(byte[] txid, byte[] who, BigInteger amount)
+        private static bool SendMoney(byte[] txid, byte[] who, BigInteger amount)
         {
             if (!Runtime.CheckWitness(superAdmin))
                 return false;
-            var keytx = new byte[] { 0x12 }.Concat(txid);
-            StorageMap getMoneyBackMap = Storage.CurrentContext.CreateMap(nameof(getMoneyBackMap));
-            var v = getMoneyBackMap.Get(keytx).AsBigInteger();
+            StorageMap sendMoneyMap = Storage.CurrentContext.CreateMap(nameof(sendMoneyMap));
+            var v = sendMoneyMap.Get(txid).AsBigInteger();
             if (v == 0)
             {
-                var key = new byte[] { 0x11 }.Concat(who);
-                StorageMap exchangeAmountMap = Storage.CurrentContext.CreateMap(nameof(exchangeAmountMap));
-                var money = exchangeAmountMap.Get(key).AsBigInteger();
-                if (money < amount)
-                    return false;
                 object[] transArr = new object[3];
                 transArr[0] = ExecutionEngine.ExecutingScriptHash;
                 transArr[1] = who;
@@ -319,18 +366,15 @@ namespace NEOBank
                 bool isSuccess = (bool)bcpCall("transfer_app", transArr);
                 if (isSuccess)
                 {
-                    money -= amount;
-                    exchangeAmountMap.Put(key, money);
-                    getMoneyBackMap.Put(keytx, 1);
+                    sendMoneyMap.Put(txid, 1);
                     //notify
-                    GetMoneyBacked(who, amount);
+                    Sended(who, amount);
                     return true;
                 }
             }
 
             return false;
         }
-
 
         /// <summary>
         /// 得到调用状态
@@ -339,14 +383,12 @@ namespace NEOBank
         /// <returns></returns>
         public static CallState GetCallState(byte[] txid)
         {
-            var key = new byte[] { 0x11 }.Concat(txid);
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
-            var data = callStateMap.Get(key);
+            var data = callStateMap.Get(txid);
             if (data.Length == 0)
                 return null;
             CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
             return s;
-
         }
 
         public class TransferInfo

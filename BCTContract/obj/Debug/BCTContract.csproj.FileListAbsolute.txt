@@ -1,0 +1,7 @@
+E:\Zoro\BlaCatContract\BCTContract\bin\Debug\BCTContract.dll
+E:\Zoro\BlaCatContract\BCTContract\bin\Debug\BCTContract.pdb
+E:\Zoro\BlaCatContract\BCTContract\bin\Debug\Neo.SmartContract.Framework.dll
+E:\Zoro\BlaCatContract\BCTContract\obj\Debug\BCTContract.csproj.CoreCompileInputs.cache
+E:\Zoro\BlaCatContract\BCTContract\obj\Debug\BCTContract.csproj.CopyComplete
+E:\Zoro\BlaCatContract\BCTContract\obj\Debug\BCTContract.dll
+E:\Zoro\BlaCatContract\BCTContract\obj\Debug\BCTContract.pdb

@@ -34,7 +34,7 @@ namespace ZoroBank
         [DisplayName("sendmoney")]
         public static event deleSend Sended;
 
-        [Appcall("zorobcp hash")]
+        [Appcall("e30e5f8aa1b5784570ec38dada546536187e0508")]
         static extern object bcpCall(string method, object[] arr);
 
         //管理员账户，改成自己测试用的的
@@ -338,7 +338,7 @@ namespace ZoroBank
                 bool isSuccess = (bool) bcpCall("transfer_app", transArr);
                 if (isSuccess)
                 {
-                                        sendMoneyMap.Put(txid, 1);
+                    sendMoneyMap.Put(txid, 1);
                     //notify
                     Sended(who, amount);
                     return true;
@@ -358,6 +358,8 @@ namespace ZoroBank
         {
             if (!Runtime.CheckWitness(who))
                 return false;
+            if (amount == 0)
+                return false;
             StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
             var money = depositBalanceMap.Get(who).AsBigInteger();
             if (money < amount)
@@ -373,10 +375,12 @@ namespace ZoroBank
                 if (money == 0)
                 {
                     depositBalanceMap.Delete(who);
+                    //notify
+                    GetMoneyBacked(who, amount);
                     return true;
                 }
-
                 depositBalanceMap.Put(who, money);
+                //notify
                 GetMoneyBacked(who, amount);
                 return true;
             }
@@ -391,9 +395,8 @@ namespace ZoroBank
         /// <returns></returns>
         public static CallState GetCallState(byte[] txid)
         {
-            var key = new byte[] { 0x11 }.Concat(txid);
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
-            var data = callStateMap.Get(key);
+            var data = callStateMap.Get(txid);
             if (data.Length == 0)
                 return null;
             CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
