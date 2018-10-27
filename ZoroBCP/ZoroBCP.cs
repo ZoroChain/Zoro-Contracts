@@ -74,10 +74,9 @@ namespace ZoroBCP
                     byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
                     if (total_supply.Length != 0)
                         return false;
-                    var toKey = new byte[] { 0x11 }.Concat(to);
+                    var toKey = new byte[] {0x11}.Concat(to);
                     Storage.Put(Storage.CurrentContext, toKey, totalCoin);
                     Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
-
                     Transferred(null, to, totalCoin);
                 }
 
