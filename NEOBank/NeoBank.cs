@@ -30,7 +30,7 @@ namespace NEOBank
 
         [DisplayName("response")] public static event deleResponse Responsed;
 
-        public delegate void deleGetReturn(byte[] txid, int returnvalue);
+        public delegate void deleGetReturn(byte[] txid, byte[] who, BigInteger value, int returnvalue);
 
         [DisplayName("getreturn")] public static event deleGetReturn GetReturned;
 
@@ -42,8 +42,7 @@ namespace NEOBank
         static extern object bcpCall(string method, object[] arr);
 
         //管理员账户，改成自己测试用的的
-        private static readonly byte[] superAdmin =
-            Neo.SmartContract.Framework.Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
 
         public static object Main(string method, object[] args)
         {
@@ -284,7 +283,7 @@ namespace NEOBank
             if (data.Length == 0)
             {
                 //notify
-                GetReturned(txid, 2); //请求不存在或被取消了，输出2
+                GetReturned(txid, null, 0, 2); //请求不存在或被取消了，输出2
                 return true;
             }
 
@@ -307,7 +306,7 @@ namespace NEOBank
                     exchangeAmountMap.Put(s.who, exchangeAmount);
                     callStateMap.Delete(txid);
                     //notify
-                    GetReturned(txid, returnvalue);
+                    GetReturned(txid, s.who, s.value, returnvalue);
                     return true;
                 }
 
@@ -316,7 +315,7 @@ namespace NEOBank
                 data = Neo.SmartContract.Framework.Helper.Serialize(s);
                 callStateMap.Put(txid, data);
                 //notify
-                GetReturned(txid, returnvalue);
+                GetReturned(txid, s.who, s.value, returnvalue);
                 return true;
             }
 

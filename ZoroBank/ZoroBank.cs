@@ -30,7 +30,7 @@ namespace ZoroBank
 
         [DisplayName("response")] public static event deleResponse Responsed;
 
-        public delegate void deleGetReturn(byte[] txid, int returnvalue);
+        public delegate void deleGetReturn(byte[] txid, byte[] who, BigInteger value, int returnvalue);
 
         [DisplayName("getreturn")] public static event deleGetReturn GetReturned;
 
@@ -294,7 +294,7 @@ namespace ZoroBank
             if (data.Length == 0)
             {
                 //notify
-                GetReturned(txid, 2); //请求不存在或被取消了
+                GetReturned(txid, null, 0, 2); //请求不存在或被取消了
                 return true;
             }
 
@@ -317,7 +317,7 @@ namespace ZoroBank
                     exchangeAmountMap.Put(s.who, exchangeAmount);
                     callStateMap.Delete(txid);
                     //notify
-                    GetReturned(txid, returnvalue);
+                    GetReturned(txid, s.who, s.value, returnvalue);
                     return true;
                 }
 
@@ -326,7 +326,7 @@ namespace ZoroBank
                 data = Neo.SmartContract.Framework.Helper.Serialize(s);
                 callStateMap.Put(txid, data);
                 //notify
-                GetReturned(txid, returnvalue);
+                GetReturned(txid, s.who, s.value, returnvalue);
                 return true;
             }
 
