@@ -11,31 +11,24 @@ namespace ZoroBank
     public class ZoroBank : SmartContract
     {
         public delegate void deleDeposit(byte[] txid, byte[] who, BigInteger value);
-
         [DisplayName("deposit")] public static event deleDeposit Deposited;
 
         public delegate void deleExchange(byte[] txid, byte[] who, BigInteger value);
-
         [DisplayName("exchange")] public static event deleExchange Exchanged;
 
         public delegate void deleGetMoneyBack(byte[] to, BigInteger value);
-
         [DisplayName("getmoneyback")] public static event deleGetMoneyBack GetMoneyBacked;
 
         public delegate void deleCancel(byte[] txid);
-
         [DisplayName("cancel")] public static event deleCancel CanCelled;
 
         public delegate void deleResponse(byte[] txid, int v);
-
         [DisplayName("response")] public static event deleResponse Responsed;
 
         public delegate void deleGetReturn(byte[] txid, byte[] who, BigInteger value, int returnvalue);
-
         [DisplayName("getreturn")] public static event deleGetReturn GetReturned;
 
         public delegate void deleSend(byte[] txid, byte[] to, BigInteger value);
-
         [DisplayName("sendmoney")] public static event deleSend Sended;
 
         [Appcall("e30e5f8aa1b5784570ec38dada546536187e0508")]
@@ -267,6 +260,8 @@ namespace ZoroBank
         /// <returns></returns>
         private static bool Response(byte[] txid, byte[] who, BigInteger amount)
         {
+            if (!Runtime.CheckWitness(superAdmin))
+                return false;
             StorageMap responseMap = Storage.CurrentContext.CreateMap(nameof(responseMap));
             var v = responseMap.Get(txid).AsBigInteger();
             //v!=0说明已经处理过该请求
@@ -316,9 +311,6 @@ namespace ZoroBank
                     depositBalanceMap.Put(s.who, depositAmount);
                     exchangeAmountMap.Put(s.who, exchangeAmount);
                     callStateMap.Delete(txid);
-                    //notify
-                    GetReturned(txid, s.who, s.value, returnvalue);
-                    return true;
                 }
 
                 s.returnvalue = returnvalue;

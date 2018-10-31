@@ -11,31 +11,24 @@ namespace NEOBank
     public class NeoBank : SmartContract
     {
         public delegate void deleDeposit(byte[] txid, byte[] who, BigInteger value);
-
         [DisplayName("deposit")] public static event deleDeposit Deposited;
 
         public delegate void deleExchange(byte[] txid, byte[] who, BigInteger value);
-
         [DisplayName("exchange")] public static event deleExchange Exchanged;
 
         public delegate void deleGetMoneyBack(byte[] to, BigInteger value);
-
         [DisplayName("getmoneyback")] public static event deleGetMoneyBack GetMoneyBacked;
 
         public delegate void deleCancel(byte[] txid);
-
         [DisplayName("cancel")] public static event deleCancel CanCelled;
 
         public delegate void deleResponse(byte[] txid, int v);
-
         [DisplayName("response")] public static event deleResponse Responsed;
 
         public delegate void deleGetReturn(byte[] txid, byte[] who, BigInteger value, int returnvalue);
-
         [DisplayName("getreturn")] public static event deleGetReturn GetReturned;
 
         public delegate void deleSend(byte[] txid, byte[] to, BigInteger value);
-
         [DisplayName("sendmoney")] public static event deleSend Sended;
 
         [Appcall("04e31cee0443bb916534dad2adf508458920e66d")]
@@ -256,6 +249,8 @@ namespace NEOBank
         /// <returns></returns>
         private static bool Response(byte[] txid, byte[] who, BigInteger amount)
         {
+            if (!Runtime.CheckWitness(superAdmin))
+                return false;
             StorageMap responseMap = Storage.CurrentContext.CreateMap(nameof(responseMap));
             var v = responseMap.Get(txid).AsBigInteger();
             //v!=0说明已经处理过该请求
@@ -304,10 +299,6 @@ namespace NEOBank
                     depositAmount += s.value;
                     depositBalanceMap.Put(s.who, depositAmount);
                     exchangeAmountMap.Put(s.who, exchangeAmount);
-                    callStateMap.Delete(txid);
-                    //notify
-                    GetReturned(txid, s.who, s.value, returnvalue);
-                    return true;
                 }
 
                 s.returnvalue = returnvalue;
