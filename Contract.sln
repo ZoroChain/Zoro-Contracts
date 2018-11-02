@@ -7,12 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BCPContract", "BCPContract\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BCTContract", "BCTContract\BCTContract.csproj", "{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NeoBankContract", "NeoBankContract\NeoBankContract.csproj", "{C4C7294D-862B-440D-AAED-0478C2593256}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroBankContract", "ZoroBankContract\ZoroBankContract.csproj", "{6F1D5054-EB1A-4ABA-B3F0-BB504DE9AC24}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroBCPContract", "ZoroBCPContract\ZoroBCPContract.csproj", "{0A04C464-E8FB-422F-B4F4-422E9E12EB7A}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEOBank", "NEOBank\NEOBank.csproj", "{450BB56C-95A9-474B-86FB-0560801FC24B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroBank", "ZoroBank\ZoroBank.csproj", "{5481CF8F-B729-408F-978B-958F63BF5F8D}"
@@ -21,9 +15,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitCoin-Nep5", "Btc-Nep5\Bi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroBCP", "ZoroBCP\ZoroBCP.csproj", "{6C97CC7E-B59D-465C-86D6-A4F9C816849D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorContract", "BancorContract\BancorContract.csproj", "{53B2A89C-F9ED-4E74-B174-50F9B31894E4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorMath", "BancorContract\BancorMath.csproj", "{53B2A89C-F9ED-4E74-B174-50F9B31894E4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ETH-Nep5", "ETH-Nep5\ETH-Nep5.csproj", "{76B40867-EDAC-41E5-B2B7-95FF502A6DE1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Bancor", "Bancor", "{F0B42E64-8CC6-4F07-881C-971EB0D621C4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorManager", "BancorManager\BancorManager.csproj", "{6BDE6000-F5DA-4089-89C9-089050AC7461}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,18 +37,6 @@ Global
 		{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5BC3A23A-F282-4F2A-86E9-5032FDA18F81}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C4C7294D-862B-440D-AAED-0478C2593256}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C4C7294D-862B-440D-AAED-0478C2593256}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C4C7294D-862B-440D-AAED-0478C2593256}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C4C7294D-862B-440D-AAED-0478C2593256}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6F1D5054-EB1A-4ABA-B3F0-BB504DE9AC24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6F1D5054-EB1A-4ABA-B3F0-BB504DE9AC24}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6F1D5054-EB1A-4ABA-B3F0-BB504DE9AC24}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6F1D5054-EB1A-4ABA-B3F0-BB504DE9AC24}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0A04C464-E8FB-422F-B4F4-422E9E12EB7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0A04C464-E8FB-422F-B4F4-422E9E12EB7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0A04C464-E8FB-422F-B4F4-422E9E12EB7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0A04C464-E8FB-422F-B4F4-422E9E12EB7A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{450BB56C-95A9-474B-86FB-0560801FC24B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{450BB56C-95A9-474B-86FB-0560801FC24B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{450BB56C-95A9-474B-86FB-0560801FC24B}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -75,9 +61,17 @@ Global
 		{76B40867-EDAC-41E5-B2B7-95FF502A6DE1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{76B40867-EDAC-41E5-B2B7-95FF502A6DE1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{76B40867-EDAC-41E5-B2B7-95FF502A6DE1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{53B2A89C-F9ED-4E74-B174-50F9B31894E4} = {F0B42E64-8CC6-4F07-881C-971EB0D621C4}
+		{6BDE6000-F5DA-4089-89C9-089050AC7461} = {F0B42E64-8CC6-4F07-881C-971EB0D621C4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2AD3EA8E-3A77-482F-B21E-7C3B86139A0C}
