@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Bancor", "Bancor", "{F0B42E
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorManager", "BancorManager\BancorManager.csproj", "{6BDE6000-F5DA-4089-89C9-089050AC7461}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bcp2Bct", "Bcp2Bct\Bcp2Bct.csproj", "{A3D0E8ED-D00A-470A-BB06-E7C277E3B26E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -65,6 +67,10 @@ Global
 		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6BDE6000-F5DA-4089-89C9-089050AC7461}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3D0E8ED-D00A-470A-BB06-E7C277E3B26E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3D0E8ED-D00A-470A-BB06-E7C277E3B26E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3D0E8ED-D00A-470A-BB06-E7C277E3B26E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3D0E8ED-D00A-470A-BB06-E7C277E3B26E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -72,6 +78,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{53B2A89C-F9ED-4E74-B174-50F9B31894E4} = {F0B42E64-8CC6-4F07-881C-971EB0D621C4}
 		{6BDE6000-F5DA-4089-89C9-089050AC7461} = {F0B42E64-8CC6-4F07-881C-971EB0D621C4}
+		{A3D0E8ED-D00A-470A-BB06-E7C277E3B26E} = {F0B42E64-8CC6-4F07-881C-971EB0D621C4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2AD3EA8E-3A77-482F-B21E-7C3B86139A0C}
