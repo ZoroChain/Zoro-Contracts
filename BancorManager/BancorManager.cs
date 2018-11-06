@@ -10,7 +10,7 @@ namespace BancorManager
     public class BancorManager : SmartContract
     {
         //管理员账户
-        static readonly byte[] superAdmin = Helper.ToScriptHash("ALjSnMZidJqd18iQaoCgFun6iqWRm2cVtj");
+        static readonly byte[] superAdmin = Helper.ToScriptHash("AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s");
 
         //负责bancor核心计算的合约
         delegate object deleCall(string method, object[] args);

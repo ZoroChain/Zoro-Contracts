@@ -8,9 +8,7 @@ namespace BancorMath
 {
     public class BancorMath : SmartContract
     {
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s");
-
-        static readonly BigInteger FIXED_1 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0 }).AsBigInteger(); //0x800000000000000000000000000000  
+        private static readonly BigInteger FIXED_1 = (new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0}).AsBigInteger(); //0x800000000000000000000000000000  
         static readonly BigInteger B_010000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 }).AsBigInteger();
         static readonly BigInteger B_020000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2 }).AsBigInteger();
         static readonly BigInteger B_040000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4 }).AsBigInteger();
@@ -48,7 +46,7 @@ namespace BancorMath
         static readonly BigInteger B_7000000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7 }).AsBigInteger();
         static readonly BigInteger B_8000000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8 }).AsBigInteger();
 
-        static readonly BigInteger MaxConnectWeight = 100000;
+        //static readonly BigInteger MaxConnectWeight = 100000;
 
         public static object Main(string method, object[] args)
         {
@@ -70,7 +68,9 @@ namespace BancorMath
 
                     // connectWeight/maxConnectWeight得到恒定金率  即w
                     var connectWeight = (BigInteger)args[3];
+
                     var maxConnectWeight = (BigInteger)args[4];
+
                     var a = (E + R) * FIXED_1 / R;
                     var baseLog = OptimalLog(a);
 
@@ -93,6 +93,7 @@ namespace BancorMath
 
                     // connectWeight/maxConnectWeight得到恒定金率  即w
                     var connectWeight = (BigInteger)args[3];
+
                     var maxConnectWeight = (BigInteger)args[4];
 
                     var baseLog = OptimalLog((T + S) * FIXED_1 / S);
