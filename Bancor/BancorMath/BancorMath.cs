@@ -8,7 +8,7 @@ namespace BancorMath
 {
     public class BancorMath : SmartContract
     {
-        private static readonly BigInteger FIXED_1 = (new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0}).AsBigInteger(); //0x800000000000000000000000000000  
+        private static readonly BigInteger FIXED_1 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0 }).AsBigInteger(); //0x800000000000000000000000000000  
         static readonly BigInteger B_010000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 }).AsBigInteger();
         static readonly BigInteger B_020000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2 }).AsBigInteger();
         static readonly BigInteger B_040000000000000000000000000000 = (new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4 }).AsBigInteger();
@@ -108,7 +108,7 @@ namespace BancorMath
             return true;
         }
 
-     
+
         //Return e ^ (x / FIXED_1) * FIXED_1
         public static BigInteger OptimalExp(BigInteger x)
         {

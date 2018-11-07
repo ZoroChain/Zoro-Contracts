@@ -2,37 +2,129 @@
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
+using System.ComponentModel;
 using System.Numerics;
 
 namespace Bcp2Bct
 {
-    public class Bcp2Bct : SmartContract
+    public class AppCoin : SmartContract
     {
         //管理员账户
-        static readonly byte[] superAdmin =
-            Neo.SmartContract.Framework.Helper.ToScriptHash("AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s");
+        static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s");
 
-        static BigInteger maxConnectWeight = 100000;
+        public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
+        [DisplayName("transfer")] public static event deleTransfer Transferred;
+
+        readonly static BigInteger maxConnectWeight = 100000;
 
         //bancor管理合约的hash
-        [Appcall("834eabcaa02d3184f0d6767f1ab28b039209546d")]
+        [Appcall("593b6f5e700862760bd735fa1884c344f6ca2a25")]
         static extern object rootCall(string method, object[] arr);
-
+        //抵押币hash
         [Appcall("04e31cee0443bb916534dad2adf508458920e66d")]
         static extern object bcpCall(string method, object[] arr);
 
-        [Appcall("40a80749ef62da6fc3d74dbf6fc7745148922372")]
-        static extern object bctCall(string method, object[] arr);
+        public static string name()
+        {
+            return "App Test Token";
+        }
+
+        public static string symbol()
+        {
+            return "ATC";
+        }
+
+        private const ulong factor = 100000000; //精度
+        private const ulong totalCoin = (Int64) 10 * 100000000 * factor;
+
+        public static byte decimals()
+        {
+            return 8;
+        }
 
         public static object Main(string method, object[] args)
         {
-            string magicStr = "Bcp2Bct";
+            string magicStr = "Bcp2Atc";
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 //鉴权部分
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
+                var callscript = ExecutionEngine.CallingScriptHash;
+                if (method == "totalSupply")
+                    return totalSupply();
+                if (method == "name")
+                    return name();
+                if (method == "symbol")
+                    return symbol();
+                if (method == "decimals")
+                    return decimals();
+                if (method == "deploy")
+                {
+                    if (!Runtime.CheckWitness(superAdmin))
+                        return false;
+                    byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
+                    if (total_supply.Length != 0)
+                        return false;
+                    var keySuperAdmin = new byte[] {0x11}.Concat(superAdmin);
+                    Storage.Put(Storage.CurrentContext, keySuperAdmin, totalCoin);
+                    Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
+
+                    Transferred(null, superAdmin, totalCoin);
+                }
+
+                if (method == "balanceOf")
+                {
+                    if (args.Length != 1)
+                        return 0;
+                    byte[] who = (byte[]) args[0];
+                    if (who.Length != 20)
+                        return false;
+                    return balanceOf(who);
+                }
+
+                if (method == "transfer")
+                {
+                    if (args.Length != 3)
+                        return false;
+                    byte[] from = (byte[]) args[0];
+                    byte[] to = (byte[]) args[1];
+                    if (from == to)
+                        return true;
+                    if (from.Length != 20 || to.Length != 20)
+                        return false;
+                    BigInteger value = (BigInteger) args[2];
+                    if (!Runtime.CheckWitness(from))
+                        return false;
+                    if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
+                        return false;
+                    if (!IsPayable(to))
+                        return false;
+                    return transfer(from, to, value);
+                }
+
+                if (method == "transfer_app")
+                {
+                    if (args.Length != 3)
+                        return false;
+                    byte[] from = (byte[]) args[0];
+                    byte[] to = (byte[]) args[1];
+                    BigInteger value = (BigInteger) args[2];
+
+                    if (from.AsBigInteger() != callscript.AsBigInteger())
+                        return false;
+                    return transfer(from, to, value);
+                }
+
+                if (method == "getTxInfo")
+                {
+                    if (args.Length != 1)
+                        return 0;
+                    byte[] txid = (byte[]) args[0];
+                    return getTxInfo(txid);
+                }
+               
                 /*
                  * invoke 即可得到值的方法
                  */
@@ -46,7 +138,8 @@ namespace Bcp2Bct
 
                     if (connectBalance == 0 || smartTokenSupply == 0 || connectWeight == 0)
                         return 0;
-                    return rootCall("purchase", new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
+                    return rootCall("purchase",
+                        new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
                 }
 
                 if ("getConnectBalance" == method)
@@ -92,7 +185,7 @@ namespace Bcp2Bct
                 if ("setSmartTokenSupplyIn" == method)
                 {
                     var txid = (byte[]) args[0];
-                    var tx = GetBctTxInfo(txid);
+                    var tx = getTxInfo(txid);
                     if (tx.from.Length == 0 || tx.from.AsBigInteger() != superAdmin.AsBigInteger())
                         return false;
                     if (tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
@@ -101,7 +194,7 @@ namespace Bcp2Bct
                         return false;
                     var smartTokenSupply = GetSmartTokenSupply();
                     PutSmartTokenSupply(smartTokenSupply + tx.value);
-                    SetBctTxUsed(txid);
+                    SetTxUsed(txid);
                     return true;
                 }
 
@@ -109,7 +202,7 @@ namespace Bcp2Bct
                 {
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
-                    BigInteger connectWeight = (BigInteger)args[0];
+                    BigInteger connectWeight = (BigInteger) args[0];
                     StorageMap connectWeightMap = Storage.CurrentContext.CreateMap("connectWeightMap");
                     connectWeightMap.Put("connectWeight", connectWeight);
                 }
@@ -122,7 +215,7 @@ namespace Bcp2Bct
                     var connectBalance = GetConnectBalance();
                     if (connectBalance < amount)
                         return false;
-                    if ((bool) bcpCall("transfer",
+                    if ((bool) bcpCall("transfer_app",
                         new object[3] {ExecutionEngine.ExecutingScriptHash, superAdmin, amount}))
                     {
                         PutConnectBalance(connectBalance - amount);
@@ -134,15 +227,14 @@ namespace Bcp2Bct
                 {
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
-                    BigInteger amount = (BigInteger)args[0];
+                    BigInteger amount = (BigInteger) args[0];
                     var smartTokenSupply = GetSmartTokenSupply();
                     if (smartTokenSupply < amount)
                         return false;
-                    if ((bool)bctCall("transfer_app", new object[3] { ExecutionEngine.ExecutingScriptHash, superAdmin, amount }))
+                    if (transfer(ExecutionEngine.ExecutingScriptHash, superAdmin, amount))
                     {
                         PutSmartTokenSupply(smartTokenSupply - amount);
                         return true;
-
                     }
                 }
 
@@ -150,7 +242,7 @@ namespace Bcp2Bct
                 //转入一定的抵押币换取智能代币
                 if ("purchase" == method)
                 {
-                    var txid = (byte[])args[0];
+                    var txid = (byte[]) args[0];
                     var tx = GetBcpTxInfo(txid);
                     if (tx.from.Length == 0)
                         return false;
@@ -159,7 +251,7 @@ namespace Bcp2Bct
                     if (tx.value <= 0)
                         return false;
 
-                    var amount = (BigInteger)tx.value; // 转入的抵押币的数量
+                    var amount = (BigInteger) tx.value; // 转入的抵押币的数量
 
                     var connectBalance = GetConnectBalance();
                     var smartTokenSupply = GetSmartTokenSupply();
@@ -168,15 +260,16 @@ namespace Bcp2Bct
                     //如果有任意一个小于0  即认为没有初始化完成或者被套空了  不允许继续
                     if (amount <= 0 || connectBalance <= 0 || smartTokenSupply <= 0 || connectWeight <= 0)
                         return false;
-                    BigInteger T = (BigInteger)rootCall("purchase", new object[5] { amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight });
+                    BigInteger T = (BigInteger) rootCall("purchase",
+                        new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
 
                     if (T <= 0)
                         return false;
 
-                    if (smartTokenSupply < T)//应该不会出现这种情况
+                    if (smartTokenSupply < T) //应该不会出现这种情况
                         return false;
-                    
-                    if ((bool)bctCall("transfer_app", new object[3] { ExecutionEngine.ExecutingScriptHash, tx.to, T }))
+
+                    if (transfer(ExecutionEngine.ExecutingScriptHash, tx.to, T))
                     {
                         PutConnectBalance(connectBalance + amount);
                         PutSmartTokenSupply(smartTokenSupply - T);
@@ -184,6 +277,7 @@ namespace Bcp2Bct
                         return true;
 
                     }
+
                     return false;
                 }
 
@@ -191,7 +285,7 @@ namespace Bcp2Bct
                 if ("sale" == method)
                 {
                     var txid = (byte[]) args[0];
-                    var tx = GetBctTxInfo(txid);
+                    var tx = getTxInfo(txid);
                     if (tx.from.Length == 0)
                         return false;
                     if (tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
@@ -215,11 +309,11 @@ namespace Bcp2Bct
                     if (connectBalance < E) //应该不会出现这种情况
                         return false;
 
-                    if ((bool) bcpCall("transfer", new object[3] {ExecutionEngine.ExecutingScriptHash, tx.to, E}))
+                    if ((bool) bcpCall("transfer_app", new object[3] {ExecutionEngine.ExecutingScriptHash, tx.to, E}))
                     {
                         PutConnectBalance(connectBalance - E);
                         PutSmartTokenSupply(smartTokenSupply + E);
-                        SetBctTxUsed(txid);
+                        SetTxUsed(txid);
                         return true;
 
                     }
@@ -230,6 +324,78 @@ namespace Bcp2Bct
 
             return true;
 
+        }
+
+        private static object totalSupply()
+        {
+            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
+        }
+
+        private static bool transfer(byte[] from, byte[] to, BigInteger value)
+        {
+            if (value <= 0)
+                return false;
+            if (from == to)
+                return true;
+            if (from.Length > 0)
+            {
+                var keyFrom = new byte[] {0x11}.Concat(from);
+                BigInteger from_value = Storage.Get(Storage.CurrentContext, keyFrom).AsBigInteger();
+                if (from_value < value)
+                    return false;
+                if (from_value == value)
+                    Storage.Delete(Storage.CurrentContext, keyFrom);
+                else
+                {
+                    Storage.Put(Storage.CurrentContext, keyFrom, from_value - value);
+                }
+            }
+
+            if (to.Length > 0)
+            {
+                var keyTo = new byte[] {0x11}.Concat(to);
+                BigInteger to_value = Storage.Get(Storage.CurrentContext, keyTo).AsBigInteger();
+                Storage.Put(Storage.CurrentContext, keyTo, to_value + value);
+            }
+
+            setTxInfo(from, to, value);
+            Transferred(from, to, value);
+            return true;
+        }
+
+        private static void setTxInfo(byte[] from, byte[] to, BigInteger value)
+        {
+            TransferInfo info = new TransferInfo();
+            info.@from = from;
+            info.to = to;
+            info.value = value;
+            byte[] txInfo = Neo.SmartContract.Framework.Helper.Serialize(info);
+            var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
+            var keyTxid = new byte[] {0x13}.Concat(txid);
+            Storage.Put(Storage.CurrentContext, keyTxid, txInfo);
+        }
+
+        private static object balanceOf(byte[] who)
+        {
+            var keyAddress = new byte[] {0x11}.Concat(who);
+            return Storage.Get(Storage.CurrentContext, keyAddress).AsBigInteger();
+        }
+
+        private static TransferInfo getTxInfo(byte[] txid)
+        {
+            byte[] keyTxid = new byte[] {0x13}.Concat(txid);
+            byte[] v = Storage.Get(Storage.CurrentContext, keyTxid);
+            if (v.Length == 0)
+                return null;
+            return Neo.SmartContract.Framework.Helper.Deserialize(v) as TransferInfo;
+        }
+
+        public static bool IsPayable(byte[] to)
+        {
+            var c = Blockchain.GetContract(to);
+            if (c.Equals(null))
+                return true;
+            return c.IsPayable;
         }
 
 
@@ -269,26 +435,10 @@ namespace Bcp2Bct
                 object[] _p = new object[1];
                 _p[0] = txid;
                 var info = bcpCall("getTxInfo", _p);
-                if (((object[])info).Length == 3)
+                if (((object[]) info).Length == 3)
                     return info as TransferInfo;
             }
-            var tInfo = new TransferInfo();
-            tInfo.from = new byte[0];
-            return tInfo;
-        }
 
-        private static TransferInfo GetBctTxInfo(byte[] txid)
-        {
-            StorageMap bctTxInfoMap = Storage.CurrentContext.CreateMap("bctTxInfoMap");
-            var v = bctTxInfoMap.Get(txid).AsBigInteger();
-            if (v == 0)
-            {
-                object[] _p = new object[1];
-                _p[0] = txid;
-                var info = bctCall("getTxInfo", _p);
-                if (((object[])info).Length == 3)
-                    return info as TransferInfo;
-            }
             var tInfo = new TransferInfo();
             tInfo.from = new byte[0];
             return tInfo;
@@ -310,7 +460,7 @@ namespace Bcp2Bct
             bcpTxInfoMap.Put(txid, 1);
         }
 
-        static void SetBctTxUsed(byte[] txid)
+        static void SetTxUsed(byte[] txid)
         {
             StorageMap bctTxInfoMap = Storage.CurrentContext.CreateMap("bctTxInfoMap");
             bctTxInfoMap.Put(txid, 1);

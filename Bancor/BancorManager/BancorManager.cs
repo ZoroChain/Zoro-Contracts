@@ -42,16 +42,16 @@ namespace BancorManager
 
                 //转发的方法
                 //不在白名单的合约不准跳板
+
                 Map<byte[], string> map = GetWhiteList();
                 if (!map.HasKey(callscript))
                     return true;
-
+                
                 byte[] mathContract = GetMathContract();
-                if (mathContract.Length == 0)
-                    return true;
+                if (mathContract.Length == 0) return true;
                 deleCall call = (deleCall)mathContract.ToDelegate();
 
-                if ("puechase" == method)
+                if ("purchase" == method)
                 {
                     return call(method, args);
                 }
