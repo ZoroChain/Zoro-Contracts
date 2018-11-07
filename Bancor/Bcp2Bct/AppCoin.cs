@@ -138,8 +138,7 @@ namespace Bcp2Bct
 
                     if (connectBalance == 0 || smartTokenSupply == 0 || connectWeight == 0)
                         return 0;
-                    return rootCall("purchase",
-                        new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
+                    return rootCall("purchase", new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
                 }
 
                 if ("getConnectBalance" == method)
@@ -269,7 +268,7 @@ namespace Bcp2Bct
                     if (smartTokenSupply < T) //应该不会出现这种情况
                         return false;
 
-                    if (transfer(ExecutionEngine.ExecutingScriptHash, tx.to, T))
+                    if (transfer(ExecutionEngine.ExecutingScriptHash, tx.@from, T))
                     {
                         PutConnectBalance(connectBalance + amount);
                         PutSmartTokenSupply(smartTokenSupply - T);
