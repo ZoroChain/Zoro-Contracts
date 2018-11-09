@@ -20,27 +20,23 @@ namespace Bcp2Bct
         //Math合约
         [Appcall("9f8d9b7dd380c187dadb887a134bf56e3e1d3453")]
         static extern object mathCall(string method, object[] arr);
-
-        //bancor管理合约的hash
-        [Appcall("593b6f5e700862760bd735fa1884c344f6ca2a25")]
-        static extern object rootCall(string method, object[] arr);
-
+        
         //抵押币hash
         [Appcall("04e31cee0443bb916534dad2adf508458920e66d")]
         static extern object bcpCall(string method, object[] arr);
 
         public static string name()
         {
-            return "App Test Token";
+            return "App Test Coin01";
         }
 
         public static string symbol()
         {
-            return "ATC";
+            return "ATT";
         }
 
         private const ulong factor = 100000000; //精度
-        private const ulong totalCoin = (Int64) 1 * 100000000 * factor;
+        private const ulong totalCoin = 1 * 100000000 * factor;
 
         public static byte decimals()
         {
@@ -49,10 +45,10 @@ namespace Bcp2Bct
 
         public static object Main(string method, object[] args)
         {
-            string magicStr = "Bcp2Atc";
+            string magicStr = "Bcp2Att";
             if (Runtime.Trigger == TriggerType.Verification)
             {
-                //鉴权部分
+                return false;
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
@@ -80,8 +76,6 @@ namespace Bcp2Bct
 
                 if (method == "balanceOf")
                 {
-                    if (args.Length != 1)
-                        return 0;
                     byte[] who = (byte[]) args[0];
                     if (who.Length != 20)
                         return false;
@@ -90,14 +84,8 @@ namespace Bcp2Bct
 
                 if (method == "transfer")
                 {
-                    if (args.Length != 3)
-                        return false;
                     byte[] from = (byte[]) args[0];
                     byte[] to = (byte[]) args[1];
-                    if (from == to)
-                        return true;
-                    if (from.Length != 20 || to.Length != 20)
-                        return false;
                     BigInteger value = (BigInteger) args[2];
                     if (!Runtime.CheckWitness(from))
                         return false;
@@ -110,8 +98,6 @@ namespace Bcp2Bct
 
                 if (method == "transfer_app")
                 {
-                    if (args.Length != 3)
-                        return false;
                     byte[] from = (byte[]) args[0];
                     byte[] to = (byte[]) args[1];
                     BigInteger value = (BigInteger) args[2];
@@ -123,25 +109,22 @@ namespace Bcp2Bct
 
                 if (method == "getTxInfo")
                 {
-                    if (args.Length != 1)
-                        return 0;
                     byte[] txid = (byte[]) args[0];
                     return getTxInfo(txid);
                 }
                
                 //invoke 即可得到值的方法
-                 
                 if ("calculatePurchaseReturn" == method)
                 {
                     var amount = (BigInteger) args[0];
-
                     var connectBalance = GetConnectBalance();
                     var smartTokenSupply = GetSmartTokenSupply();
                     var connectWeight = GetConnetWeight();
 
                     if (connectBalance == 0 || smartTokenSupply == 0 || connectWeight == 0)
                         return 0;
-                    return mathCall("purchase", new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
+                    return mathCall("purchase",
+                        new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
                 }
 
                 if ("getConnectBalance" == method)
@@ -184,20 +167,12 @@ namespace Bcp2Bct
 
                 if ("setSmartTokenSupplyIn" == method)
                 {
-                    byte[] from = (byte[])args[0];
-                    byte[] to = ExecutionEngine.ExecutingScriptHash;
-                    if (from.Length != 20 || to.Length != 20)
-                        return false;
-                    BigInteger value = (BigInteger)args[1];
-                    if (!Runtime.CheckWitness(from))
-                        return false;
-                    if (from.AsBigInteger() != superAdmin.AsBigInteger())
+                    BigInteger value = (BigInteger) args[0];
+                    if (!Runtime.CheckWitness(superAdmin))
                         return false;
                     if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                         return false;
-                    if (value <= 0)
-                        return false;
-                    if (transfer(from, to, value))
+                    if (transfer(superAdmin, ExecutionEngine.ExecutingScriptHash, value))
                     {
                         var smartTokenSupply = GetSmartTokenSupply();
                         PutSmartTokenSupply(smartTokenSupply + value);
@@ -253,39 +228,26 @@ namespace Bcp2Bct
                 {
                     var txid = (byte[]) args[0];
                     var tx = GetBcpTxInfo(txid);
-                    if (tx.from.Length == 0)
+                    if (tx.@from.Length <= 0 || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
                         return false;
-                    if (tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
-                        return false;
-                    if (tx.value <= 0)
-                        return false;
-
-                    var amount = (BigInteger) tx.value; // 转入的抵押币的数量
 
                     var connectBalance = GetConnectBalance();
                     var smartTokenSupply = GetSmartTokenSupply();
                     var connectWeight = GetConnetWeight();
 
                     //如果有任意一个小于0  即认为没有初始化完成或者被套空了  不允许继续
-                    if (amount <= 0 || connectBalance <= 0 || smartTokenSupply <= 0 || connectWeight <= 0)
-                        return false;
-                    
-                    BigInteger T = (BigInteger)mathCall("purchase", new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
-
-                    if (T <= 0)
+                    if (tx.value <= 0 || connectBalance <= 0 || smartTokenSupply <= 0 || connectWeight <= 0)
                         return false;
 
-                    if (smartTokenSupply < T) //应该不会出现这种情况
-                        return false;
-
+                    BigInteger T = (BigInteger) mathCall("purchase",new object[5] {tx.value, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
                     if (transfer(ExecutionEngine.ExecutingScriptHash, tx.@from, T))
                     {
-                        PutConnectBalance(connectBalance + amount);
+                        PutConnectBalance(connectBalance + tx.value);
                         PutSmartTokenSupply(smartTokenSupply - T);
                         SetBcpTxUsed(txid);
                         return true;
-
                     }
+
                     return false;
                 }
 
@@ -293,14 +255,10 @@ namespace Bcp2Bct
                 if ("sale" == method)
                 {
                     byte[] from = (byte[]) args[0];
-                    if (from.Length != 20)
-                        return false;
                     BigInteger amount = (BigInteger) args[1];
                     if (!Runtime.CheckWitness(from))
                         return false;
                     if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
-                        return false;
-                    if (amount <= 0)
                         return false;
                     if (transfer(from, ExecutionEngine.ExecutingScriptHash, amount))
                     {
@@ -313,9 +271,7 @@ namespace Bcp2Bct
                             return false;
                         BigInteger E = (BigInteger) mathCall("sale",
                             new object[5] {amount, connectBalance, smartTokenSupply, connectWeight, maxConnectWeight});
-                        if (E <= 0)
-                            return false;
-
+                       
                         if (connectBalance < E) //应该不会出现这种情况
                             return false;
 
@@ -339,6 +295,8 @@ namespace Bcp2Bct
 
         private static bool transfer(byte[] from, byte[] to, BigInteger value)
         {
+            if (from.Length != 20 || to.Length != 20)
+                return false;
             if (value <= 0)
                 return false;
             if (from == to)
@@ -363,7 +321,6 @@ namespace Bcp2Bct
                 BigInteger to_value = Storage.Get(Storage.CurrentContext, keyTo).AsBigInteger();
                 Storage.Put(Storage.CurrentContext, keyTo, to_value + value);
             }
-
             setTxInfo(from, to, value);
             Transferred(from, to, value);
             return true;
@@ -450,13 +407,9 @@ namespace Bcp2Bct
                 object[] _p = new object[1];
                 _p[0] = txid;
                 var info = bcpCall("getTxInfo", _p);
-                if (((object[])info).Length == 3)
-                    return info as TransferInfo;
+                return info as TransferInfo;
             }
-
-            var tInfo = new TransferInfo();
-            tInfo.from = new byte[0];
-            return tInfo;
+            return new TransferInfo();
         }
 
         public static void SetBcpTxUsed(byte[] txid)
