@@ -19,7 +19,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ETH-Nep5", "ETH-Nep5\ETH-Ne
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorManager", "Bancor\BancorManager\BancorManager.csproj", "{89DD8F7B-1CF0-404F-BAF8-AC50DD70B1B5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppCoin", "Bancor\Bcp2Bct\AppCoin.csproj", "{AACDADD6-0034-472A-9922-0A4F4F21C908}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppCoin", "Bancor\AppCoin\AppCoin.csproj", "{AACDADD6-0034-472A-9922-0A4F4F21C908}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Bancor", "Bancor", "{AE2FA98D-0578-4C7E-A0E6-16E6A35827E9}"
 EndProject
