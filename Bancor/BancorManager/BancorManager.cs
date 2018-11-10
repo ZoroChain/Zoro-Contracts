@@ -21,6 +21,7 @@ namespace BancorManager
 
             if (Runtime.Trigger == TriggerType.Verification)
             {
+                return false;
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {

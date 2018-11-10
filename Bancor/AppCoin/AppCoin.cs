@@ -5,6 +5,7 @@ using System;
 using System.ComponentModel;
 using System.Numerics;
 
+//将Bancor兑换部分内置到Nep5合约中，应用链Nep5代币自带Bancor机制，抵押币统一为BCP
 namespace Bcp2Bct
 {
     public class AppCoin : SmartContract
