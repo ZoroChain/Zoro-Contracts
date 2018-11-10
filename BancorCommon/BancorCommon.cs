@@ -8,7 +8,7 @@ using Helper = Neo.SmartContract.Framework.Helper;
 namespace BancorCommon
 {
     /// <summary>
-    /// 通用Bancor合约，实现一个所有智能代币公用的Bancor合约，抵押币统一为BCP
+    /// 通用Bancor合约，所有代币公用的Bancor合约，总管理员可以设置各类代币的管理员账户、连接器信息，各代币管理员可以设置自己代币的连接器权重、余额等信息
     /// </summary>
     public class BancorCommon : SmartContract
     {
@@ -34,10 +34,16 @@ namespace BancorCommon
                 //invoke
                 if (method == "getWhiteList")
                     return GetWhiteList();
-                
+
+                if (method == "getAssetInfo")
+                {
+                    byte[] assetid = (byte[])args[0];
+                    return GetAssetInfo(assetid);
+                }
+
                 if (method == "calculatePurchaseReturn")
                 {
-                    var assetid = (byte[]) args[0];
+                    var assetid = (byte[])args[0];
                     var amount = (BigInteger)args[1];
                     var assetInfo = GetAssetInfo(assetid);
                     if (amount == 0 || assetInfo.connectBalance == 0 || assetInfo.smartTokenSupply == 0 ||
@@ -56,81 +62,124 @@ namespace BancorCommon
                 {
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
-                    var assetid = (byte[]) args[0];
-                    var connectAssetId = (byte[]) args[1];
-                    var admin = (byte[]) args[2];
+                    var assetid = (byte[])args[0];
+                    var connectAssetId = (byte[])args[1];
+                    var admin = (byte[])args[2];
                     if (assetid.Length == 0 || connectAssetId.Length == 0 || admin.Length == 0)
                         return false;
-                    SetWhiteList(assetid, admin);
+                    var whiteList = GetWhiteList();
+                    AssetInfo assetInfo = new AssetInfo();
+                    if (whiteList.HasKey(assetid))
+                        assetInfo = GetAssetInfo(assetid);
+                    assetInfo.connectAssetId = connectAssetId;
+                    assetInfo.admin = admin;
+                    if (SetAssetInfo(assetid, assetInfo))
+                        return SetWhiteList(assetid, admin);
+                    return false;
                 }
 
                 //应用币管理员权限
-                if (method == "setConnectAssetId")
-                {
-                    var assetid = (byte[])args[0];
-                    var connectAssetId = (byte[])args[1];
-                    var admin = GetAdmin(assetid);
-                    if (!Runtime.CheckWitness(admin))
-                        return false;
-                    if (assetid.Length == 0 || connectAssetId.Length == 0)
-                        return false;
-                    var assetInfo = GetAssetInfo(assetid);
-                    assetInfo.connectAssetId = connectAssetId;
-                    return SetAssetInfo(assetid, assetInfo);
-                }
 
                 if (method == "setConnectWeight")
                 {
-                    var assetid = (byte[]) args[0];
-                    var admin = GetAdmin(assetid);
-                    if (!Runtime.CheckWitness(admin))
+                    var assetid = (byte[])args[0];
+                    var connectWeight = (BigInteger)args[1];
+                    if (assetid.Length == 0 || connectWeight <= 0)
                         return false;
-                    var connectWeight = (BigInteger) args[1];
                     var assetInfo = GetAssetInfo(assetid);
+                    if (!Runtime.CheckWitness(assetInfo.admin))
+                        return false;
                     assetInfo.connectWeight = connectWeight;
-                    SetAssetInfo(assetid, assetInfo);
+                    return SetAssetInfo(assetid, assetInfo);
                 }
 
                 if (method == "setConnectBalanceIn")
                 {
-                    var assetid = (byte[]) args[0];
-                    var txid = (byte[]) args[1];
+                    var assetid = (byte[])args[0];
+                    var txid = (byte[])args[1];
                     var assetInfo = GetAssetInfo(assetid);
-                    var admin = GetAdmin(assetid);
-                    if (!Runtime.CheckWitness(admin))
+                    if (!Runtime.CheckWitness(assetInfo.admin))
                         return false;
                     if (assetid.Length == 0 || txid.Length == 0 || assetInfo.connectAssetId.Length == 0)
                         return false;
-                    var tx = GetTxInfo(assetid, txid);
-                    if (tx.from.Length == 0 || tx.from.AsBigInteger() != admin.AsBigInteger())
-                        return false;
-                    if (tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
-                        return false;
-                    if (tx.value <= 0)
+                    var tx = GetTxInfo(assetInfo.connectAssetId, txid);
+                    if (tx.from.Length == 0 || tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
                         return false;
                     assetInfo.connectBalance += tx.value;
-                    SetAssetInfo(assetid, assetInfo);
-                    SetTxUsed(txid);
-                    return true;
+                    if (SetAssetInfo(assetid, assetInfo))
+                    {
+                        SetTxUsed(txid);
+                        return true;
+                    }
+                    return false;
                 }
 
                 if (method == "setSmartTokenSupplyIn")
                 {
                     var assetid = (byte[])args[0];
                     var txid = (byte[])args[1];
-                    var tx = GetTxInfo(assetid, txid);
-                    var admin = GetAdmin(assetid);
-                    if (tx.from.Length == 0 || tx.from.AsBigInteger() != admin.AsBigInteger())
-                        return false;
-                    if (tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
-                        return false;
-                    if (tx.value <= 0)
-                        return false;
                     var assetInfo = GetAssetInfo(assetid);
+                    if (!Runtime.CheckWitness(assetInfo.admin))
+                        return false;
+                    if (assetid.Length == 0 || txid.Length == 0 || assetInfo.connectAssetId.Length == 0)
+                        return false;
+                    var tx = GetTxInfo(assetid, txid);
+                    if (tx.from.Length == 0 || tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
+                        return false;
                     assetInfo.smartTokenSupply += tx.value;
-                    SetAssetInfo(assetid, assetInfo);
-                    SetTxUsed(txid);
-                    return true;
+                    if (SetAssetInfo(assetid, assetInfo))
+                    {
+                        SetTxUsed(txid);
+                        return true;
+                    }
+                    return false;
+                }
+
+                if (method == "getConnectBalanceBack")
+                {
+                    var assetid = (byte[])args[0];
+                    BigInteger amount = (BigInteger)args[1];
+                    var assetInfo = GetAssetInfo(assetid);
+                    if (!Runtime.CheckWitness(assetInfo.admin))
+                        return false;
+                    if (assetid.Length == 0 || assetInfo.connectAssetId.Length == 0 || amount <= 0 || assetInfo.connectBalance < amount)
+                        return false;
+                    if ((bool)TransferApp(assetInfo.connectAssetId, assetInfo.admin, amount))
+                    {
+                        assetInfo.connectBalance -= amount;
+                        return SetAssetInfo(assetid, assetInfo);
+                    }
+                    return false;
+                }
+
+                if (method == "getSmartTokenSupplyBack")
+                {
+                    var assetid = (byte[])args[0];
+                    BigInteger amount = (BigInteger)args[1];
+                    var assetInfo = GetAssetInfo(assetid);
+                    if (!Runtime.CheckWitness(assetInfo.admin))
+                        return false;
+                    if (assetid.Length == 0 || assetInfo.connectAssetId.Length == 0 || amount <= 0 || assetInfo.smartTokenSupply < amount)
+                        return false;
+                    if ((bool)TransferApp(assetid, assetInfo.admin, amount))
+                    {
+                        assetInfo.smartTokenSupply -= amount;
+                        return SetAssetInfo(assetid, assetInfo);
+                    }
+                    return false;
+                }
+
+                //无需管理员权限
+                //转入一定的抵押币换取智能代币
+                if (method == "purchase")
+                {
+                    return false;
+                }
+
+                //清算一定的智能代币换取抵押币
+                if (method == "sale")
+                {
+                    return false;
                 }
 
             }
@@ -138,7 +187,7 @@ namespace BancorCommon
             return false;
         }
 
-        public static object SetAssetInfo(byte[] assetid, AssetInfo assetInfo)
+        public static bool SetAssetInfo(byte[] assetid, AssetInfo assetInfo)
         {
             StorageMap assentInfoMap = Storage.CurrentContext.CreateMap("assentInfoMap");
             byte[] assetInfoBytes = Helper.Serialize(assetInfo);
@@ -183,10 +232,10 @@ namespace BancorCommon
             return data.Deserialize() as Map<byte[], byte[]>;
         }
 
-        public static byte[] GetAdmin(byte[] assetid)
+        public static object TransferApp(byte[] assetid, byte[] to, BigInteger amount)
         {
-            var map = GetWhiteList();
-            return map[assetid];
+            deleCall call = (deleCall)assetid.ToDelegate();
+            return call("transfer_app", new object[3] { ExecutionEngine.ExecutingScriptHash, to, amount });
         }
 
         public static TransferInfo GetTxInfo(byte[] assetid, byte[] txid)
