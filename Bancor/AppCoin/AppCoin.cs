@@ -118,7 +118,7 @@ namespace Bcp2Bct
                 {
                     var amount = (BigInteger) args[0];
                     var connectBalance = GetConnectBalance();
-                    var smartTokenSupply = GetSmartTokenSupply();
+                    var smartTokenSupply = balanceOf(ExecutionEngine.ExecutingScriptHash);
                     var connectWeight = GetConnetWeight();
 
                     if (connectBalance == 0 || smartTokenSupply == 0 || connectWeight == 0)
@@ -134,7 +134,7 @@ namespace Bcp2Bct
 
                 if ("getSmartTokenSupply" == method)
                 {
-                    return GetSmartTokenSupply();
+                    return balanceOf(ExecutionEngine.ExecutingScriptHash);
                 }
 
                 if ("getConnetWeight" == method)
@@ -164,22 +164,7 @@ namespace Bcp2Bct
                     SetBcpTxUsed(txid);
                     return true;
                 }
-
-                if ("setSmartTokenSupplyIn" == method)
-                {
-                    BigInteger value = (BigInteger) args[0];
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
-                    if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
-                        return false;
-                    if (transfer(superAdmin, ExecutionEngine.ExecutingScriptHash, value))
-                    {
-                        var smartTokenSupply = GetSmartTokenSupply();
-                        PutSmartTokenSupply(smartTokenSupply + value);
-                        return true;
-                    }
-                }
-
+               
                 if ("setConnectWeight" == method)
                 {
                     if (!Runtime.CheckWitness(superAdmin))
@@ -212,14 +197,8 @@ namespace Bcp2Bct
                     BigInteger amount = (BigInteger) args[0];
                     if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                         return false;
-                    var smartTokenSupply = GetSmartTokenSupply();
-                    if (smartTokenSupply < amount)
-                        return false;
-                    if (transfer(ExecutionEngine.ExecutingScriptHash, superAdmin, amount))
-                    {
-                        PutSmartTokenSupply(smartTokenSupply - amount);
-                        return true;
-                    }
+                    var smartTokenSupply = balanceOf(ExecutionEngine.ExecutingScriptHash);
+                    transfer(ExecutionEngine.ExecutingScriptHash, superAdmin, amount);
                 }
 
                 //无需管理员权限
@@ -232,7 +211,7 @@ namespace Bcp2Bct
                         return false;
 
                     var connectBalance = GetConnectBalance();
-                    var smartTokenSupply = GetSmartTokenSupply();
+                    var smartTokenSupply = balanceOf(ExecutionEngine.ExecutingScriptHash);
                     var connectWeight = GetConnetWeight();
 
                     //如果有任意一个小于0  即认为没有初始化完成或者被套空了  不允许继续
@@ -243,7 +222,6 @@ namespace Bcp2Bct
                     if (transfer(ExecutionEngine.ExecutingScriptHash, tx.@from, T))
                     {
                         PutConnectBalance(connectBalance + tx.value);
-                        PutSmartTokenSupply(smartTokenSupply - T);
                         SetBcpTxUsed(txid);
                         return true;
                     }
@@ -263,7 +241,7 @@ namespace Bcp2Bct
                     if (transfer(from, ExecutionEngine.ExecutingScriptHash, amount))
                     {
                         var connectBalance = GetConnectBalance();
-                        var smartTokenSupply = GetSmartTokenSupply();
+                        var smartTokenSupply = balanceOf(ExecutionEngine.ExecutingScriptHash);
                         var connectWeight = GetConnetWeight();
 
                         //如果有任意一个小于0  即认为没有初始化完成或者被套空了  不允许继续
@@ -278,7 +256,6 @@ namespace Bcp2Bct
                         if ((bool) bcpCall("transfer_app", new object[3] {ExecutionEngine.ExecutingScriptHash, from, E}))
                         {
                             PutConnectBalance(connectBalance - E);
-                            PutSmartTokenSupply(smartTokenSupply + E);
                             return true;
                         }
                     }
@@ -338,7 +315,7 @@ namespace Bcp2Bct
             Storage.Put(Storage.CurrentContext, keyTxid, txInfo);
         }
 
-        private static object balanceOf(byte[] who)
+        private static BigInteger balanceOf(byte[] who)
         {
             var keyAddress = new byte[] {0x11}.Concat(who);
             return Storage.Get(Storage.CurrentContext, keyAddress).AsBigInteger();
@@ -382,22 +359,7 @@ namespace Bcp2Bct
             StorageMap connectWeightMap = Storage.CurrentContext.CreateMap("connectWeightMap");
             return connectWeightMap.Get("connectWeight").AsBigInteger();
         }
-
-        public static void PutSmartTokenSupply(BigInteger _supply)
-        {
-            StorageMap smartTokenSupplyMap = Storage.CurrentContext.CreateMap("smartTokenSupplyMap");
-            if (_supply == 0)
-                smartTokenSupplyMap.Delete("smartTokenSupply");
-            else
-                smartTokenSupplyMap.Put("smartTokenSupply", _supply);
-        }
-
-        public static BigInteger GetSmartTokenSupply()
-        {
-            StorageMap smartTokenSupplyMap = Storage.CurrentContext.CreateMap("smartTokenSupplyMap");
-            return smartTokenSupplyMap.Get("smartTokenSupply").AsBigInteger();
-        }
-
+        
         public static TransferInfo GetBcpTxInfo(byte[] txid)
         {
             StorageMap bcpTxInfoMap = Storage.CurrentContext.CreateMap("bcpTxInfoMap");
