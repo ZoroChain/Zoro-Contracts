@@ -79,6 +79,18 @@ namespace BancorCommon
                 }
 
                 //应用币管理员权限
+                if (method == "setConnectWeight")
+                {
+                    var assetid = (byte[])args[0];
+                    var connectWeight = (BigInteger)args[1];
+                    if (assetid.Length == 0 || connectWeight <= 0)
+                        return false;
+                    var assetInfo = GetAssetInfo(assetid);
+                    if (!Runtime.CheckWitness(assetInfo.admin))
+                        return false;
+                    assetInfo.connectWeight = connectWeight;
+                    return SetAssetInfo(assetid, assetInfo);
+                }
 
                 if (method == "setConnectWeight")
                 {
@@ -118,10 +130,10 @@ namespace BancorCommon
                 {
                     var assetid = (byte[])args[0];
                     var txid = (byte[])args[1];
+                    if (assetid.Length == 0 || txid.Length == 0)
+                        return false;
                     var assetInfo = GetAssetInfo(assetid);
                     if (!Runtime.CheckWitness(assetInfo.admin))
-                        return false;
-                    if (assetid.Length == 0 || txid.Length == 0 || assetInfo.connectAssetId.Length == 0)
                         return false;
                     var tx = GetTxInfo(assetid, txid);
                     if (tx.from.Length == 0 || tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
@@ -159,7 +171,7 @@ namespace BancorCommon
                     var assetInfo = GetAssetInfo(assetid);
                     if (!Runtime.CheckWitness(assetInfo.admin))
                         return false;
-                    if (assetid.Length == 0 || assetInfo.connectAssetId.Length == 0 || amount <= 0 || assetInfo.smartTokenSupply < amount)
+                    if (assetid.Length == 0 || amount <= 0 || assetInfo.smartTokenSupply < amount)
                         return false;
                     if ((bool)TransferApp(assetid, assetInfo.admin, amount))
                     {
@@ -173,12 +185,56 @@ namespace BancorCommon
                 //转入一定的抵押币换取智能代币
                 if (method == "purchase")
                 {
+                    var assetid = (byte[])args[0];
+                    var txid = (byte[])args[1];
+                    if (assetid.Length == 0 || txid.Length == 0)
+                        return false;
+                    var assetInfo = GetAssetInfo(assetid);
+                    var tx = GetTxInfo(assetInfo.connectAssetId, txid);
+                    if (tx.from.Length == 0 || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
+                        return false;
+                    var amount = (BigInteger)mathCall("purchase",
+                        new object[5]
+                        {
+                            tx.value, assetInfo.connectBalance, assetInfo.smartTokenSupply, assetInfo.connectWeight,
+                            assetInfo.maxConnectWeight
+                        });
+                    if ((bool)TransferApp(assetid, tx.from, amount))
+                    {
+                        assetInfo.connectBalance += tx.value;
+                        assetInfo.smartTokenSupply -= amount;
+                        SetAssetInfo(assetid, assetInfo);
+                        SetTxUsed(txid);
+                        return true;
+                    }
                     return false;
                 }
 
                 //清算一定的智能代币换取抵押币
                 if (method == "sale")
                 {
+                    var assetid = (byte[])args[0];
+                    var txid = (byte[])args[1];
+                    if (assetid.Length == 0 || txid.Length == 0)
+                        return false;
+                    var assetInfo = GetAssetInfo(assetid);
+                    var tx = GetTxInfo(assetid, txid);
+                    if (tx.from.Length == 0 || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
+                        return false;
+                    var amount = (BigInteger)mathCall("sale",
+                        new object[5]
+                        {
+                            tx.value, assetInfo.connectBalance, assetInfo.smartTokenSupply, assetInfo.connectWeight,
+                            assetInfo.maxConnectWeight
+                        });
+                    if ((bool)TransferApp(assetInfo.connectAssetId, tx.from, amount))
+                    {
+                        assetInfo.smartTokenSupply += tx.value;
+                        assetInfo.connectBalance -= amount;
+                        SetAssetInfo(assetid, assetInfo);
+                        SetTxUsed(txid);
+                        return true;
+                    }
                     return false;
                 }
 
