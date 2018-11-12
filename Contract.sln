@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEOBank", "NEOBank\NEOBank.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroBank", "ZoroBank\ZoroBank.csproj", "{5481CF8F-B729-408F-978B-958F63BF5F8D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitCoin-Nep5", "Btc-Nep5\BitCoin-Nep5.csproj", "{184789C5-1B6E-4A6E-92ED-ADAC60C9BF82}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitCoin-Nep5", "BitCoin-Nep5\BitCoin-Nep5.csproj", "{184789C5-1B6E-4A6E-92ED-ADAC60C9BF82}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroBCP", "ZoroBCP\ZoroBCP.csproj", "{6C97CC7E-B59D-465C-86D6-A4F9C816849D}"
 EndProject
@@ -27,7 +27,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorMath", "Bancor\Bancor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NFTContract", "NFT-Token\NFTContract.csproj", "{86F99E76-CDD9-499A-B623-076BC9BF8283}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorCommon", "BancorCommon\BancorCommon.csproj", "{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorCommon", "Bancor\BancorCommon\BancorCommon.csproj", "{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
