@@ -36,8 +36,8 @@ namespace BCTContract
             return "BCT";
         }
 
-        private const ulong factor = 10000;//精度
-        private const ulong totalCoin = (Int64)9000 * 100000000 * factor;
+        private const ulong factor = 100000000;//精度
+        private const ulong totalCoin = 9000 * 10000 * factor;
 
         public static byte decimals()
         {

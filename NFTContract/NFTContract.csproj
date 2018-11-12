@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}</ProjectGuid>
+    <ProjectGuid>{86F99E76-CDD9-499A-B623-076BC9BF8283}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>BancorCommon</RootNamespace>
-    <AssemblyName>BancorCommon</AssemblyName>
+    <RootNamespace>NFTContract</RootNamespace>
+    <AssemblyName>NFTContract</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -32,8 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Neo.SmartContract.Framework">
-      <HintPath>..\..\Neo.SmartContract.Framework.dll</HintPath>
+    <Reference Include="Neo.SmartContract.Framework, Version=2.7.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Neo.SmartContract.Framework.2.7.3\lib\net40\Neo.SmartContract.Framework.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -45,7 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BancorCommon.cs" />
+    <Compile Include="PartnerToken.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

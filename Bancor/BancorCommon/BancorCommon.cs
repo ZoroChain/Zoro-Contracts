@@ -37,7 +37,7 @@ namespace BancorCommon
 
                 if (method == "getAssetInfo")
                 {
-                    byte[] assetid = (byte[])args[0];
+                    byte[] assetid = (byte[]) args[0];
                     return GetAssetInfo(assetid);
                 }
 
