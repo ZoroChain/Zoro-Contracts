@@ -15,7 +15,9 @@ namespace NFT_Token
     {
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
-
+        //收款地址
+        private static readonly byte[] recMoneyAddr = Neo.SmartContract.Framework.Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
+        //BCT合约hash
         [Appcall("40a80749ef62da6fc3d74dbf6fc7745148922372")]
         static extern object bctCall(string method, object[] arr);
 
@@ -35,11 +37,6 @@ namespace NFT_Token
         public static string Symbol() => "BPT";//简称
         
         public static string Version() => "1.0.0"; //版本
-
-        public static byte decimals()
-        {
-            return 1;
-        }
 
         public static object Main(string method, object[] args)
         {
@@ -75,6 +72,14 @@ namespace NFT_Token
                         return false;
                     return GetNFTByAddress(address);
                 }
+                if (method == "getconfig")
+                {
+                    StorageMap configMap = Storage.CurrentContext.CreateMap("configMap");
+                    var configBytes = configMap.Get("config");
+                    if (configBytes.Length == 0)
+                        return new Config();
+                    return configBytes.Deserialize() as Config;
+                }
 
                 //管理员权限
                 if (method == "setconfig")
@@ -104,10 +109,11 @@ namespace NFT_Token
 
                 }
 
+                //内部发行
                 if (method == "deploy")
                 {
-                    byte[] tokenId = (byte[]) args[0];
-                    byte[] to = (byte[]) args[1];
+                    byte[] tokenId = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
                     if (tokenId.Length == 0 || to.Length == 0)
                         return false;
                     if (!Runtime.CheckWitness(superAdmin))
@@ -115,13 +121,14 @@ namespace NFT_Token
                     var nftInfo = GetNFTByAddress(to);
                     if (nftInfo.tokenId == null)
                     {
-                        nftInfo = CreateNft(to, tokenId);
-                        Deploy(nftInfo);
+                        nftInfo = CreateNft(to, tokenId, null);
+                        SaveNftInfo(nftInfo);
                         return nftInfo;
                     }
                     return false;
                 }
 
+                //首次购买
                 if (method == "buy")
                 {
                     byte[] tokenId = (byte[])args[0];
@@ -132,31 +139,52 @@ namespace NFT_Token
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
                     var tx = GetTxInfo(txid);
-                    if (tx.@from.Length == 0 || tx.to != superAdmin || tx.value <= 0)
+                    if (tx.@from.Length == 0 || tx.to != recMoneyAddr || tx.value <= 0)
                         return false;
                     var nftInfo = GetNFTByAddress(lastLine);
                     if (nftInfo.tokenId == null)
                         return false;
+                    if (IsHaveNft(tx.from))
+                        return false;
+                    nftInfo = CreateNft(tx.from, tokenId, lastLine);
+                    SaveNftInfo(nftInfo);
                     SetTxUsed(txid);
-                    return false;
+                    return true;
+                }
+
+                //转手交易
+                if (method == "exchange")
+                {
+
+                }
+
+                //升级
+                if (method == "upgrade")
+                {
+
                 }
             }
 
             return false;
         }
 
-        private static NFTInfo CreateNft(byte[] to, byte[] tokenId)
+        private static bool IsHaveNft(byte[] from)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static NFTInfo CreateNft(byte[] owner, byte[] tokenId, byte[] lastLine)
         {
             var nftInfo = new NFTInfo();
             nftInfo.tokenId = tokenId;
-            nftInfo.owner = to;
+            nftInfo.owner = owner;
             nftInfo.contributionPoint = 0;
             nftInfo.Rank = 1;
-            nftInfo.LastLine = null;
+            nftInfo.LastLine = lastLine;
             return nftInfo;
         }
 
-        public static bool Deploy(NFTInfo nftInfo)
+        public static bool SaveNftInfo(NFTInfo nftInfo)
         {
             StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
             byte[] nftInfoBytes = Helper.Serialize(nftInfo);
@@ -169,7 +197,7 @@ namespace NFT_Token
             StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
             byte[] data = userNftInfoMap.Get(address);
             if (data.Length == 0)
-                return new NFTInfo(){tokenId = null};
+                return new NFTInfo();
             return data.Deserialize() as NFTInfo;
         }
 
@@ -206,7 +234,7 @@ namespace NFT_Token
     //证书信息
     public class NFTInfo
     {
-        public byte[] tokenId; //tokenid 证书ID
+        public byte[] tokenId = null; //tokenid 证书ID
         public byte[] owner; //所有者 address
         public BigInteger Rank; //等级
         public BigInteger contributionPoint; //贡献值
