@@ -103,6 +103,8 @@ namespace NFT_Token
 
                 if (method == "setconfig")
                 {
+                    if (!Runtime.CheckWitness(superAdmin))
+                        return false;
                     BigInteger SilverPrice = (BigInteger) args[0];
                     BigInteger GoldPrice = (BigInteger) args[1];
                     BigInteger PlatinumPrice = (BigInteger) args[2];
@@ -117,8 +119,6 @@ namespace NFT_Token
                     BigInteger platinumUpgradePoint = (BigInteger)args[9];
                     BigInteger diamondUpgradePoint = (BigInteger)args[10];
 
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
                     var config = new Config()
                     {
                         SilverPrice = SilverPrice,GoldPrice = GoldPrice,PlatinumPrice = PlatinumPrice,DiamondPrice = DiamondPrice,

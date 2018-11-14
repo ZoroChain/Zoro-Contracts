@@ -3,6 +3,7 @@ using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
 using System.Numerics;
+using System.Security.Policy;
 using Helper = Neo.SmartContract.Framework.Helper;
 
 namespace BancorCommon
@@ -22,7 +23,7 @@ namespace BancorCommon
 
         public static object Main(string method, object[] args)
         {
-            string magicStr = "BancorCommon";
+            string magicStr = "BancorCommon_v1.0";
 
             if (Runtime.Trigger == TriggerType.Verification)
             {
@@ -69,8 +70,8 @@ namespace BancorCommon
                         return false;
                     var whiteList = GetWhiteList();
                     AssetInfo assetInfo = new AssetInfo();
-                    if (whiteList.HasKey(assetid))
-                        assetInfo = GetAssetInfo(assetid);
+                    if (whiteList.HasKey(assetid)) //设置过就不能改了
+                        return false;
                     assetInfo.connectAssetId = connectAssetId;
                     assetInfo.admin = admin;
                     if (SetAssetInfo(assetid, assetInfo))
@@ -92,16 +93,16 @@ namespace BancorCommon
                     return SetAssetInfo(assetid, assetInfo);
                 }
 
-                if (method == "setConnectWeight")
+                if (method == "setMaxConnectWeight")
                 {
                     var assetid = (byte[])args[0];
-                    var connectWeight = (BigInteger)args[1];
-                    if (assetid.Length == 0 || connectWeight <= 0)
+                    var maxConnectWeight = (BigInteger)args[1];
+                    if (assetid.Length == 0 || maxConnectWeight <= 0)
                         return false;
                     var assetInfo = GetAssetInfo(assetid);
                     if (!Runtime.CheckWitness(assetInfo.admin))
                         return false;
-                    assetInfo.connectWeight = connectWeight;
+                    assetInfo.maxConnectWeight = maxConnectWeight;
                     return SetAssetInfo(assetid, assetInfo);
                 }
 
@@ -115,7 +116,7 @@ namespace BancorCommon
                     if (assetid.Length == 0 || txid.Length == 0 || assetInfo.connectAssetId.Length == 0)
                         return false;
                     var tx = GetTxInfo(assetInfo.connectAssetId, txid);
-                    if (tx.from.Length == 0 || tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
+                    if (tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
                         return false;
                     assetInfo.connectBalance += tx.value;
                     if (SetAssetInfo(assetid, assetInfo))
@@ -136,7 +137,7 @@ namespace BancorCommon
                     if (!Runtime.CheckWitness(assetInfo.admin))
                         return false;
                     var tx = GetTxInfo(assetid, txid);
-                    if (tx.from.Length == 0 || tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
+                    if (tx.from.AsBigInteger() != assetInfo.admin.AsBigInteger() || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
                         return false;
                     assetInfo.smartTokenSupply += tx.value;
                     if (SetAssetInfo(assetid, assetInfo))
@@ -243,24 +244,6 @@ namespace BancorCommon
             return false;
         }
 
-        public static bool SetAssetInfo(byte[] assetid, AssetInfo assetInfo)
-        {
-            StorageMap assentInfoMap = Storage.CurrentContext.CreateMap("assentInfoMap");
-            byte[] assetInfoBytes = Helper.Serialize(assetInfo);
-            assentInfoMap.Put(assetid, assetInfoBytes);
-            return true;
-        }
-
-        public static AssetInfo GetAssetInfo(byte[] assetid)
-        {
-            StorageMap assentInfoMap = Storage.CurrentContext.CreateMap("assentInfoMap");
-            byte[] assetInfoBytes = assentInfoMap.Get(assetid);
-            AssetInfo assetInfo = new AssetInfo();
-            if (assetInfoBytes.Length > 0)
-                assetInfo = assetInfoBytes.Deserialize() as AssetInfo;
-            return assetInfo;
-        }
-
         /// <summary>
         /// 设置可以使用Bancor的白名单
         /// </summary>
@@ -277,6 +260,24 @@ namespace BancorCommon
             map[key] = admin;
             whiteListMap.Put("whiteList", map.Serialize());
             return true;
+        }
+
+        public static bool SetAssetInfo(byte[] assetid, AssetInfo assetInfo)
+        {
+            StorageMap assentInfoMap = Storage.CurrentContext.CreateMap("assentInfoMap");
+            byte[] assetInfoBytes = Helper.Serialize(assetInfo);
+            assentInfoMap.Put(assetid, assetInfoBytes);
+            return true;
+        }
+
+        public static AssetInfo GetAssetInfo(byte[] assetid)
+        {
+            StorageMap assentInfoMap = Storage.CurrentContext.CreateMap("assentInfoMap");
+            byte[] assetInfoBytes = assentInfoMap.Get(assetid);
+            AssetInfo assetInfo = new AssetInfo();
+            if (assetInfoBytes.Length > 0)
+                assetInfo = assetInfoBytes.Deserialize() as AssetInfo;
+            return assetInfo;
         }
 
         public static Map<byte[], byte[]> GetWhiteList()
@@ -304,7 +305,7 @@ namespace BancorCommon
             {
                 object[] _p = new object[1] { txid };
                 var info = call("getTxInfo", _p);
-                if (((object[])info).Length == 3)
+                if (info != null)
                     tInfo = info as TransferInfo;
             }
             return tInfo;
@@ -327,11 +328,11 @@ namespace BancorCommon
 
     public class AssetInfo
     {
-        public byte[] connectAssetId;
-        public byte[] admin;
-        public BigInteger connectWeight;
-        public BigInteger maxConnectWeight;
-        public BigInteger connectBalance;
-        public BigInteger smartTokenSupply;
+        public byte[] connectAssetId; //连接器hash
+        public byte[] admin; //管理员
+        public BigInteger connectWeight; //连接器权重
+        public BigInteger maxConnectWeight; //最大权重
+        public BigInteger connectBalance; //连接器代币余额
+        public BigInteger smartTokenSupply; //智能代币余额
     }
 }
