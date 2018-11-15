@@ -13,10 +13,6 @@ namespace BancorCommon
     /// </summary>
     public class BancorCommon : SmartContract
     {
-        //Math合约
-        [Appcall("9f8d9b7dd380c187dadb887a134bf56e3e1d3453")]
-        static extern object mathCall(string method, object[] arr);
-        
         //总管理员账户 用来设置白名单等
         static readonly byte[] superAdmin = Helper.ToScriptHash("AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s");
         delegate object deleCall(string method, object[] args);
@@ -42,23 +38,14 @@ namespace BancorCommon
                     return GetAssetInfo(assetid);
                 }
 
-                if (method == "calculatePurchaseReturn")
-                {
-                    var assetid = (byte[])args[0];
-                    var amount = (BigInteger)args[1];
-                    var assetInfo = GetAssetInfo(assetid);
-                    if (amount == 0 || assetInfo.connectBalance == 0 || assetInfo.smartTokenSupply == 0 ||
-                        assetInfo.connectWeight == 0)
-                        return 0;
-                    return mathCall("purchase",
-                        new object[5]
-                        {
-                            amount, assetInfo.connectBalance, assetInfo.smartTokenSupply, assetInfo.connectWeight,
-                            assetInfo.maxConnectWeight
-                        });
-                }
-
                 //总管理员权限
+                if (method == "setMathContract")
+                {
+                    if (!Runtime.CheckWitness(superAdmin))
+                        return false;
+                    return SetMathContract((byte[])args[0]);
+                }
+                
                 if (method == "setWhiteList")
                 {
                     if (!Runtime.CheckWitness(superAdmin))
@@ -182,6 +169,29 @@ namespace BancorCommon
                     return false;
                 }
 
+                byte[] mathContract = GetMathContract();
+                if (mathContract.Length == 0) return true;
+
+                if (method == "getMathContract")
+                    return GetMathContract();
+
+                if (method == "calculatePurchaseReturn")
+                {
+                    var assetid = (byte[])args[0];
+                    var amount = (BigInteger)args[1];
+                    var assetInfo = GetAssetInfo(assetid);
+                    if (amount == 0 || assetInfo.connectBalance == 0 || assetInfo.smartTokenSupply == 0 ||
+                        assetInfo.connectWeight == 0)
+                        return 0;
+                    deleCall mathCall = (deleCall)mathContract.ToDelegate();
+                    return mathCall("purchase",
+                        new object[5]
+                        {
+                            amount, assetInfo.connectBalance, assetInfo.smartTokenSupply, assetInfo.connectWeight,
+                            assetInfo.maxConnectWeight
+                        });
+                }
+
                 //无需管理员权限
                 //转入一定的抵押币换取智能代币
                 if (method == "purchase")
@@ -194,6 +204,7 @@ namespace BancorCommon
                     var tx = GetTxInfo(assetInfo.connectAssetId, txid);
                     if (tx.from.Length == 0 || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
                         return false;
+                    deleCall mathCall = (deleCall)mathContract.ToDelegate();
                     var amount = (BigInteger)mathCall("purchase",
                         new object[5]
                         {
@@ -222,6 +233,7 @@ namespace BancorCommon
                     var tx = GetTxInfo(assetid, txid);
                     if (tx.from.Length == 0 || tx.to.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger() || tx.value <= 0)
                         return false;
+                    deleCall mathCall = (deleCall)mathContract.ToDelegate();
                     var amount = (BigInteger)mathCall("sale",
                         new object[5]
                         {
@@ -262,6 +274,20 @@ namespace BancorCommon
             return true;
         }
 
+        public static byte[] GetMathContract()
+        {
+            StorageMap mathContractMap = Storage.CurrentContext.CreateMap("mathContractMap");
+            return mathContractMap.Get("mathContract");
+        }
+
+        public static bool SetMathContract(byte[] contractHash)
+        {
+            StorageMap mathContractMap = Storage.CurrentContext.CreateMap("mathContractMap");
+            mathContractMap.Put("mathContract", contractHash);
+            return true;
+        }
+
+
         public static bool SetAssetInfo(byte[] assetid, AssetInfo assetInfo)
         {
             StorageMap assentInfoMap = Storage.CurrentContext.CreateMap("assentInfoMap");
@@ -297,16 +323,16 @@ namespace BancorCommon
 
         public static TransferInfo GetTxInfo(byte[] assetid, byte[] txid)
         {
-            deleCall call = (deleCall)assetid.ToDelegate();
             StorageMap txInfoMap = Storage.CurrentContext.CreateMap("txInfoMap");
             var tInfo = new TransferInfo();
             var v = txInfoMap.Get(txid).AsBigInteger();
             if (v == 0)
             {
                 object[] _p = new object[1] { txid };
+                deleCall call = (deleCall)assetid.ToDelegate();
                 var info = call("getTxInfo", _p);
-                if (info != null)
-                    tInfo = info as TransferInfo;
+                if (((object[])info).Length == 3)
+                    return info as TransferInfo;
             }
             return tInfo;
         }
