@@ -317,8 +317,9 @@ namespace BancorCommon
 
         public static object TransferApp(byte[] assetid, byte[] to, BigInteger amount)
         {
+            object[] _p = new object[3] { ExecutionEngine.ExecutingScriptHash, to, amount};
             deleCall call = (deleCall)assetid.ToDelegate();
-            return call("transfer_app", new object[3] { ExecutionEngine.ExecutingScriptHash, to, amount });
+            return call("transfer_app", _p);
         }
 
         public static TransferInfo GetTxInfo(byte[] assetid, byte[] txid)
