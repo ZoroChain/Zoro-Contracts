@@ -27,7 +27,7 @@ namespace NFT_Token
         [DisplayName("exchange")]
         public static event deleExchange Exchanged;
 
-        public delegate void deleBuy(byte[] address, byte[] tokenId, byte[] lastLine);
+        public delegate void deleBuy(byte[] address, byte[] lastLine, byte[] tokenId);
         [DisplayName("buy")]
         public static event deleBuy Bought;
 
@@ -67,31 +67,30 @@ namespace NFT_Token
                 if (method == "getnftinfo")
                 {
                     byte[] address = (byte[]) args[0];
-                    if (address.Length == 0)
-                        return false;
-                    return GetNFTByAddress(address);
+                    if (address.Length == 0) return false;
+                    StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
+                    byte[] tokenId = addressMap.Get(address);
+                    if (tokenId.Length == 0) return false;
+                    return GetNftByTokenId(tokenId);
                 }
 
                 if (method == "gettxinfo")
                 {
                     byte[] txid = (byte[]) args[0];
-                    if (txid.Length == 0)
-                        return false;
+                    if (txid.Length == 0) return false;
                     return GetTxInfoByTxid(txid);
                 }
 
                 //管理员权限
                 if (method == "getconfig")
                 {
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return GetConfig();
                 }
 
                 if (method == "getcount")
                 {
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     var nftCount = new NftCount();
                     StorageMap nftCountMap = Storage.CurrentContext.CreateMap("nftCountMap");
                     var data = nftCountMap.Get("nftCount");
@@ -100,28 +99,31 @@ namespace NFT_Token
                     return nftCount;
                 }
 
+                //设置各参数
                 if (method == "setconfig")
                 {
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     BigInteger silverPrice = (BigInteger) args[0];
                     BigInteger goldPrice = (BigInteger) args[1];
                     BigInteger platinumPrice = (BigInteger) args[2];
                     BigInteger diamondPrice = (BigInteger) args[3];
 
-                    BigInteger silverInvitePoint = (BigInteger) args[4];
-                    BigInteger goldInvitePoint = (BigInteger) args[5];
-                    BigInteger platinumInvitePoint = (BigInteger) args[6];
-                    BigInteger diamondInvitePoint = (BigInteger) args[7];
+                    BigInteger leaguerInvitePoint = (BigInteger) args[4];
+                    BigInteger silverInvitePoint = (BigInteger) args[5];
 
-                    BigInteger goldUpgradePoint = (BigInteger) args[8];
-                    BigInteger platinumUpgradePoint = (BigInteger) args[9];
-                    BigInteger diamondUpgradePoint = (BigInteger) args[10];
+                    BigInteger goldInvitePoint = (BigInteger) args[6];
+                    BigInteger platinumInvitePoint = (BigInteger) args[7];
+                    BigInteger diamondInvitePoint = (BigInteger) args[8];
+
+                    BigInteger goldUpgradePoint = (BigInteger) args[9];
+                    BigInteger platinumUpgradePoint = (BigInteger) args[10];
+                    BigInteger diamondUpgradePoint = (BigInteger) args[11];
 
                     var config = new Config()
                     {
                         SilverPrice = silverPrice, GoldPrice = goldPrice, PlatinumPrice = platinumPrice,
                         DiamondPrice = diamondPrice,
+                        LeaguerInvitePoint = leaguerInvitePoint,
                         SilverInvitePoint = silverInvitePoint, GoldInvitePoint = goldInvitePoint,
                         PlatinumInvitePoint = platinumInvitePoint, DiamondInvitePoint = diamondInvitePoint,
                         GoldUpgradePoint = goldUpgradePoint, PlatinumUpgradePoint = platinumUpgradePoint,
@@ -137,52 +139,56 @@ namespace NFT_Token
                 //内部发行
                 if (method == "deploy")
                 {
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     byte[] address = (byte[]) args[0];
-                    var tokenId = Hash256((ExecutionEngine.ScriptContainer as Transaction).Hash);
-                    if (tokenId.Length == 0 || address.Length == 0)
-                        return false;
-                    var nftInfo = GetNFTByAddress(address);
-                    if (nftInfo.TokenId.Length > 0) //该地址已拥有，false
-                        return false;
+                    if (address.Length == 0) return false;
+                    StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
+                    byte[] tokenId = addressMap.Get(address);
+                    if (tokenId.Length > 0) return false;
+                    tokenId = Hash256((ExecutionEngine.ScriptContainer as Transaction).Hash);
                     var newNftInfo = CreateNft(address, tokenId, null);
                     if (SaveNftInfo(newNftInfo))
+                    {
+                        addressMap.Put(address, tokenId);
+                        AddNftCount(newNftInfo.Rank);
+                        SetTxInfo(null, address, tokenId);
                         return newNftInfo;
+                    }
                     return false;
                 }
 
                 //首次购买
                 if (method == "buy")
                 {
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     byte[] txid = (byte[]) args[0];
-                    byte[] lastLine = (byte[])args[1];
-                    var tokenId = Hash256((ExecutionEngine.ScriptContainer as Transaction).Hash);
-                    if (tokenId.Length == 0 || txid.Length == 0 || lastLine.Length == 0)
-                        return false;
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
+                    byte[] inviterAddr = (byte[])args[1];
+                    if (txid.Length == 0 || inviterAddr.Length == 0) return false;
                     var config = GetConfig();
-                    if (config.SilverPrice == 0)
-                        return false;
+                    if (config.SilverPrice == 0) return false;
                     var tx = GetBctTxInfo(txid);
                     if (tx.@from.Length == 0 || tx.to.AsBigInteger() != recMoneyAddr.AsBigInteger() || tx.value < config.SilverPrice)
                         return false;
                     //购买者已拥有或者上线未拥有证书、均false
-                    var nftInfo = GetNFTByAddress(tx.from);
-                    if (nftInfo.TokenId.Length > 0)
-                        return false;
-                    var lastLineNftInfo = GetNFTByAddress(lastLine);
-                    if (lastLineNftInfo.TokenId.Length == 0)
-                        return false;
-
-                    nftInfo = CreateNft(tx.from, tokenId, lastLine);
+                    StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
+                    byte[] tokenId = addressMap.Get(tx.@from);
+                    if (tokenId.Length > 0) return false;
+                    var inviterTokenId = addressMap.Get(inviterAddr);
+                    if (inviterTokenId.Length == 0) return false;
+                    tokenId = Hash256((ExecutionEngine.ScriptContainer as Transaction).Hash);
+                    
+                    var nftInfo = CreateNft(tx.from, tokenId, inviterTokenId);
                     if (SaveNftInfo(nftInfo))
                     {
-                        AddPoint(lastLineNftInfo, config);
+                        addressMap.Put(tx.@from, tokenId);
+                        AddNftCount(nftInfo.Rank);
+                        var inviterNftInfo = GetNftByTokenId(inviterTokenId);
+                        //邀请白银证书加分
+                        inviterNftInfo.ContributionPoint += config.SilverInvitePoint;
+                        SaveNftInfo(inviterNftInfo);
                         SetTxUsed(txid);
                         SetTxInfo(null, tx.@from, tokenId);
-                        Bought(tx.@from, tokenId, lastLine); //notify
+                        Bought(tx.@from, inviterTokenId, tokenId); //notify
                         return nftInfo;
                     }
                     return false;
@@ -197,18 +203,21 @@ namespace NFT_Token
                     byte[] to = (byte[]) args[1];
                     if (from.Length == 0 || to.Length == 0)
                         return false;
-                    var toNftInfo = GetNFTByAddress(to);
-                    if (toNftInfo.TokenId.Length > 0)
-                        return false;
-                    var fromNftInfo = GetNFTByAddress(from);
-                    if (fromNftInfo.TokenId.Length == 0)
-                        return false;
+                    StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
+                    byte[] toTokenId = addressMap.Get(to);
+                    if (toTokenId.Length > 0) return false;
+
+                    byte[] fromTokenId = addressMap.Get(from);
+                    if (fromTokenId.Length == 0) return false;
+
+                    var fromNftInfo = GetNftByTokenId(fromTokenId);
                     fromNftInfo.Owner = to;
                     if(SaveNftInfo(fromNftInfo))
                     {
-                        DeleteNftInfo(from);
-                        SetTxInfo(from, to, fromNftInfo.TokenId);
-                        Exchanged(from, to, fromNftInfo.TokenId);
+                        addressMap.Delete(from);
+                        addressMap.Put(to, fromTokenId);
+                        SetTxInfo(from, to, fromTokenId);
+                        Exchanged(from, to, fromTokenId);
                         return true;
                     }
 
@@ -224,27 +233,56 @@ namespace NFT_Token
                     var tx = GetBctTxInfo(txid);
                     if (tx.@from.Length == 0 || tx.to.AsBigInteger() != recMoneyAddr.AsBigInteger() || tx.value <= 0)
                         return false;
-                    var nftInfo = GetNFTByAddress(tx.@from);
-                    if (nftInfo.TokenId.Length == 0)
-                        return false;
-                    if (CanUpgrade(nftInfo, tx))
+                    StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
+                    byte[] tokenId = addressMap.Get(tx.@from);
+                    if (tokenId.Length == 0) return false;
+                    var nftInfo = GetNftByTokenId(tokenId);
+                    var config = GetConfig();
+                    if (CanUpgrade(config, nftInfo, tx))
                     {
                         nftInfo.Rank += 1;
                         SaveNftInfo(nftInfo);
-                        AddNftCount(nftInfo);
+                        AddNftCount(nftInfo.Rank);
                         SetTxUsed(txid);
+                        //升级给邀请者加分
+                        if (nftInfo.InviterTokenId.Length > 0)
+                        {
+                            BigInteger addPoint = GetAddPoint(config, nftInfo.Rank);
+                            var lastLineNftInfo = GetNftByTokenId(nftInfo.InviterTokenId);
+                            lastLineNftInfo.ContributionPoint += addPoint;
+                            SaveNftInfo(lastLineNftInfo);
+                        }
                         return true;
                     }
                     return false;
+                }
+
+                //邀请普通会员加分
+                if (method == "addpoint")
+                {
+                    if (!Runtime.CheckWitness(superAdmin))
+                        return false;
+                    byte[] address = (byte[])args[0];
+                    if (address.Length == 0) return false;
+                    StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
+                    byte[] tokenId = addressMap.Get(address);
+                    if (tokenId.Length == 0) return false;
+                    var nftInfo = GetNftByTokenId(tokenId);
+                    var config = GetConfig();
+                    if (config.LeaguerInvitePoint == 0) return false;
+                    nftInfo.ContributionPoint += config.LeaguerInvitePoint;
+                    if (SaveNftInfo(nftInfo))
+                        return true;
+                    return false;
+
                 }
             }
 
             return false;
         }
 
-        public static bool CanUpgrade(NFTInfo nftInfo, TransferInfo tx)
+        public static bool CanUpgrade(Config config, NFTInfo nftInfo, TransferInfo tx)
         {
-            var config = GetConfig();
             if (config.SilverPrice == 0)
                 return false;
             if (nftInfo.Rank == 1 && nftInfo.ContributionPoint >= config.GoldUpgradePoint &&
@@ -268,54 +306,51 @@ namespace NFT_Token
             return configBytes.Deserialize() as Config;
         }
 
-        public static bool AddPoint(NFTInfo lastLinneNftInfo,Config config)
+        public static BigInteger GetAddPoint(Config config, BigInteger rank)
         {
-            if (lastLinneNftInfo.Rank == 1)
-                lastLinneNftInfo.ContributionPoint += config.SilverInvitePoint;
-            if (lastLinneNftInfo.Rank == 2)
-                lastLinneNftInfo.ContributionPoint += config.GoldInvitePoint;
-            if (lastLinneNftInfo.Rank == 3)
-                lastLinneNftInfo.ContributionPoint += config.PlatinumInvitePoint;
-            if (lastLinneNftInfo.Rank == 4)
-                lastLinneNftInfo.ContributionPoint += config.DiamondInvitePoint;
-            return SaveNftInfo(lastLinneNftInfo); 
+            if (rank == 2)
+                return config.GoldInvitePoint;
+            if (rank == 3)
+                return config.PlatinumInvitePoint;
+            if (rank == 4)
+                return config.DiamondInvitePoint;
+            return 0;
         }
 
-        public static NFTInfo CreateNft(byte[] owner, byte[] tokenId, byte[] lastLine)
+        public static NFTInfo CreateNft(byte[] owner, byte[] tokenId, byte[] inviterTokenId)
         {
             var nftInfo = new NFTInfo();
             nftInfo.TokenId = tokenId;
             nftInfo.Owner = owner;
             nftInfo.ContributionPoint = 0;
             nftInfo.Rank = 1;
-            nftInfo.LastLine = lastLine;
-            AddNftCount(nftInfo);
+            nftInfo.InviterTokenId = inviterTokenId;
             return nftInfo;
         }
 
-        public static void AddNftCount(NFTInfo nftInfo)
+        public static void AddNftCount(BigInteger rank)
         {
             var nftCount = new NftCount();
             StorageMap nftCountMap = Storage.CurrentContext.CreateMap("nftCountMap");
             var data = nftCountMap.Get("nftCount");
             if (data.Length > 0)
                 nftCount = data.Deserialize() as NftCount;
-            if (nftInfo.Rank == 1)
+            if (rank == 1)
             {
                 nftCount.AllCount += 1;
                 nftCount.SilverCount += 1;
             }
-            if (nftInfo.Rank == 2)
+            if (rank == 2)
             {
                 nftCount.GoldCount += 1;
                 nftCount.SilverCount -= 1;
             }
-            if (nftInfo.Rank == 3)
+            if (rank == 3)
             {
                 nftCount.PlatinumCount += 1;
                 nftCount.GoldCount -= 1;
             }
-            if (nftInfo.Rank == 4)
+            if (rank == 4)
             {
                 nftCount.DiamondCount += 1;
                 nftCount.PlatinumCount -= 1;
@@ -328,21 +363,14 @@ namespace NFT_Token
         {
             StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
             byte[] nftInfoBytes = Helper.Serialize(nftInfo);
-            userNftInfoMap.Put(nftInfo.Owner, nftInfoBytes);
+            userNftInfoMap.Put(nftInfo.TokenId, nftInfoBytes);
             return true;
         }
 
-        public static bool DeleteNftInfo(byte[] address)
+        public static NFTInfo GetNftByTokenId(byte[] tokenId)
         {
             StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
-            userNftInfoMap.Delete(address);
-            return true;
-        }
-
-        public static NFTInfo GetNFTByAddress(byte[] address)
-        {
-            StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
-            byte[] data = userNftInfoMap.Get(address);
+            byte[] data = userNftInfoMap.Get(tokenId);
             var nftInfo = new NFTInfo();
             if (data.Length > 0)
                 nftInfo = data.Deserialize() as NFTInfo;
@@ -408,7 +436,7 @@ namespace NFT_Token
         public byte[] Owner; //所有者 address
         public BigInteger Rank; //等级
         public BigInteger ContributionPoint; //贡献值
-        public byte[] LastLine; //上线
+        public byte[] InviterTokenId; //邀请者证书ID
     }
 
     //配置
@@ -419,10 +447,12 @@ namespace NFT_Token
         public BigInteger PlatinumPrice; //升级铂金价格
         public BigInteger DiamondPrice; //升级钻石价格
 
-        public BigInteger SilverInvitePoint; //白银邀请所得贡献值
-        public BigInteger GoldInvitePoint; //黄金邀请所得贡献值
-        public BigInteger PlatinumInvitePoint; //铂金邀请所得贡献值
-        public BigInteger DiamondInvitePoint; //钻石邀请所得贡献值
+        public BigInteger LeaguerInvitePoint; //邀请普通会员所得贡献值
+        public BigInteger SilverInvitePoint; //邀请白银所得贡献值
+
+        public BigInteger GoldInvitePoint; //被邀请者升级黄金时邀请者所得贡献值
+        public BigInteger PlatinumInvitePoint; //被邀请者升级铂金时邀请者所得贡献值
+        public BigInteger DiamondInvitePoint; //被邀请者升级钻石时邀请者所得贡献值
 
         public BigInteger GoldUpgradePoint; //升级黄金所需贡献值
         public BigInteger PlatinumUpgradePoint; //升级铂金所需贡献值
