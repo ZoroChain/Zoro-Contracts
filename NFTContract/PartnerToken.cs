@@ -27,9 +27,9 @@ namespace NFT_Token
         [DisplayName("exchange")]
         public static event deleExchange Exchanged;
 
-        public delegate void deleBuy(byte[] address, byte[] lastLine, byte[] tokenId);
-        [DisplayName("buy")]
-        public static event deleBuy Bought;
+        public delegate void deleUpgrade(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank);
+        [DisplayName("upgrade")]
+        public static event deleUpgrade Upgraded;
 
         public static string Name() => "BlaCat Partner Certificate Token";//Blacat 合伙人证书 NFT
         
@@ -77,13 +77,11 @@ namespace NFT_Token
                 //管理员权限
                 if (method == "getconfig")
                 {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return GetConfig();
                 }
 
                 if (method == "getcount")
                 {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     var nftCount = new NftCount();
                     StorageMap nftCountMap = Storage.CurrentContext.CreateMap("nftCountMap");
                     var data = nftCountMap.Get("nftCount");
@@ -145,7 +143,8 @@ namespace NFT_Token
                         addressMap.Put(address, tokenId);
                         AddNftCount(newNftInfo.Rank);
                         SetTxInfo(null, address, tokenId);
-                        return newNftInfo;
+                        Exchanged(null, address, tokenId); //notify
+                        return true;
                     }
                     return false;
                 }
@@ -181,8 +180,8 @@ namespace NFT_Token
                         SaveNftInfo(inviterNftInfo);
                         SetTxUsed(txid);
                         SetTxInfo(null, tx.@from, tokenId);
-                        Bought(tx.@from, inviterTokenId, tokenId); //notify
-                        return nftInfo;
+                        Exchanged(null, tx.@from, tokenId); //notify
+                        return true;
                     }
                     return false;
                 }
@@ -241,10 +240,12 @@ namespace NFT_Token
                         if (nftInfo.InviterTokenId.Length > 0)
                         {
                             BigInteger addPoint = GetAddPoint(config, nftInfo.Rank);
-                            var lastLineNftInfo = GetNftByTokenId(nftInfo.InviterTokenId);
-                            lastLineNftInfo.ContributionPoint += addPoint;
-                            SaveNftInfo(lastLineNftInfo);
+                            var inviterNftInfo = GetNftByTokenId(nftInfo.InviterTokenId);
+                            inviterNftInfo.ContributionPoint += addPoint;
+                            SaveNftInfo(inviterNftInfo);
                         }
+
+                        Upgraded(tokenId, tx.@from, nftInfo.Rank - 1, nftInfo.Rank);//notify
                         return true;
                     }
                     return false;
