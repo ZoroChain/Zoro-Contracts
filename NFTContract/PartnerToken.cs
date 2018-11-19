@@ -31,13 +31,6 @@ namespace NFT_Token
         [DisplayName("buy")]
         public static event deleBuy Bought;
 
-        public class ExchangeInfo
-        {
-            public byte[] from;
-            public byte[] to;
-            public byte[] tokenId;
-        }
-
         public static string Name() => "BlaCat Partner Certificate Token";//Blacat 合伙人证书 NFT
         
         public static string Symbol() => "BPT";//简称
@@ -420,6 +413,13 @@ namespace NFT_Token
             txInfoMap.Put(txid, 1);
         }
 
+    }
+
+    public class ExchangeInfo
+    {
+        public byte[] from;
+        public byte[] to;
+        public byte[] tokenId;
     }
 
     public class TransferInfo
