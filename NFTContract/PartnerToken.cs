@@ -74,7 +74,6 @@ namespace NFT_Token
                     return GetTxInfoByTxid(txid);
                 }
 
-                //管理员权限
                 if (method == "getconfig")
                 {
                     return GetConfig();
