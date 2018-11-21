@@ -25,7 +25,7 @@ namespace ZoroBank
         public delegate void deleResponse(byte[] txid, int v);
         [DisplayName("response")] public static event deleResponse Responsed;
 
-        public delegate void deleGetReturn(byte[] txid, byte[] who, BigInteger value, int returnvalue);
+        public delegate void deleGetReturn(byte[] txid, int returnvalue);
         [DisplayName("getreturn")] public static event deleGetReturn GetReturned;
 
         public delegate void deleSend(byte[] txid, byte[] to, BigInteger value);
@@ -57,7 +57,6 @@ namespace ZoroBank
                 //记录存款
                 if (method == "deposit")
                 {
-                    if (args.Length != 1) return false;
                     byte[] txid = (byte[]) args[0];
                     return Deposit(txid);
                 }
@@ -65,11 +64,11 @@ namespace ZoroBank
                 //兑换请求、收到返回前可以撤销
                 if (method == "exchange")
                 {
-                    if (args.Length != 3)
-                        return false;
                     byte[] witnessreturn = (byte[]) args[0];
                     byte[] who = (byte[]) args[1];
+                    if (!Runtime.CheckWitness(who)) return false;
                     BigInteger amount = (BigInteger) args[2];
+                    if (who.Length == 0 || amount <= 0) return false;
                     return Exchange(witnessreturn, who, amount);
                 }
 
@@ -92,16 +91,13 @@ namespace ZoroBank
                 if (method == "response")
                 {
                     byte[] txid = (byte[]) args[0];
-                    byte[] who = (byte[]) args[1];
-                    BigInteger amount = (BigInteger) args[2];
-                    return Response(txid, who, amount);
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    return Response(txid);
                 }
 
                 //查存款数
                 if (method == "balanceOf")
                 {
-                    if (args.Length != 1)
-                        return 0;
                     byte[] who = (byte[]) args[0];
                     StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
                     return depositBalanceMap.Get(who).AsBigInteger();
@@ -117,12 +113,10 @@ namespace ZoroBank
                 //兑换完成，发钱
                 if (method == "sendmoney") //兑换完发钱
                 {
-                    if (args.Length != 3)
+                    if (!Runtime.CheckWitness(superAdmin))
                         return false;
                     byte[] txid = (byte[]) args[0];
-                    byte[] who = (byte[]) args[1];
-                    BigInteger amount = (BigInteger) args[2];
-                    return SendMoney(txid, who, amount);
+                    return SendMoney(txid);
                 }
 
                 //取回放进 Bank 中的钱
@@ -130,6 +124,8 @@ namespace ZoroBank
                 {
                     byte[] who = (byte[]) args[0];
                     BigInteger amount = (BigInteger) args[1];
+                    if (!Runtime.CheckWitness(who)) return false;
+                    if (amount == 0) return false;
                     GetMoneyBack(who, amount);
                 }
 
@@ -185,11 +181,8 @@ namespace ZoroBank
         /// <returns></returns>
         public static bool Exchange(byte[] witnessreturn, byte[] who, BigInteger amount)
         {
-            if (!Runtime.CheckWitness(who))
-                return false;
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-
-            var v = new CallState();
+            var v = new CallInfo();
             v.state = 1;
             v.witnesscall = who;
             v.witnessreturn = witnessreturn;
@@ -226,7 +219,7 @@ namespace ZoroBank
             var data = callStateMap.Get(txid);
             if (data.Length == 0)
                 return false;
-            CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
+            CallInfo s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallInfo;
             if (s.state == 1)
             {
                 if (!Runtime.CheckWitness(s.witnesscall))
@@ -257,10 +250,8 @@ namespace ZoroBank
         /// <param name="who"></param>
         /// <param name="amount"></param>
         /// <returns></returns>
-        private static bool Response(byte[] txid, byte[] who, BigInteger amount)
+        private static bool Response(byte[] txid)
         {
-            if (!Runtime.CheckWitness(superAdmin))
-                return false;
             StorageMap responseMap = Storage.CurrentContext.CreateMap(nameof(responseMap));
             var v = responseMap.Get(txid).AsBigInteger();
             //v!=0说明已经处理过该请求
@@ -288,11 +279,11 @@ namespace ZoroBank
             if (data.Length == 0)
             {
                 //notify
-                GetReturned(txid, null, 0, 2); //请求不存在或被取消了
+                GetReturned(txid, 2); //请求不存在或被取消了
                 return true;
             }
 
-            CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
+            CallInfo s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallInfo;
             if (s.state == 1)
             {
                 if (!Runtime.CheckWitness(s.witnessreturn))
@@ -317,7 +308,7 @@ namespace ZoroBank
                 data = Neo.SmartContract.Framework.Helper.Serialize(s);
                 callStateMap.Put(txid, data);
                 //notify
-                GetReturned(txid, s.who, s.value, returnvalue);
+                GetReturned(txid, returnvalue);
                 return true;
             }
 
@@ -332,10 +323,6 @@ namespace ZoroBank
         /// <returns></returns>
         private static bool GetMoneyBack(byte[] who, BigInteger amount)
         {
-            if (!Runtime.CheckWitness(who))
-                return false;
-            if (amount == 0)
-                return false;
             StorageMap depositBalanceMap = Storage.CurrentContext.CreateMap(nameof(depositBalanceMap));
             var money = depositBalanceMap.Get(who).AsBigInteger();
             if (money < amount)
@@ -372,25 +359,26 @@ namespace ZoroBank
         /// <param name="who"></param>
         /// <param name="amount"></param>
         /// <returns></returns>
-        private static bool SendMoney(byte[] txid, byte[] who, BigInteger amount)
+        private static bool SendMoney(byte[] txid)
         {
-            if (!Runtime.CheckWitness(superAdmin))
-                return false;
             StorageMap sendMoneyMap = Storage.CurrentContext.CreateMap(nameof(sendMoneyMap));
             var v = sendMoneyMap.Get(txid).AsBigInteger();
             if (v == 0)
             {
+                StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
+                var data = callStateMap.Get(txid);
+                CallInfo s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallInfo;
                 object[] transArr = new object[3];
                 transArr[0] = ExecutionEngine.ExecutingScriptHash;
-                transArr[1] = who;
-                transArr[2] = amount;
+                transArr[1] = s.who;
+                transArr[2] = s.value;
 
                 bool isSuccess = (bool)bcpCall("transfer_app", transArr);
                 if (isSuccess)
                 {
                     sendMoneyMap.Put(txid, 1);
                     //notify
-                    Sended(txid, who, amount);
+                    Sended(txid, s.who, s.value);
                     return true;
                 }
             }
@@ -403,13 +391,13 @@ namespace ZoroBank
         /// </summary>
         /// <param name="txid">兑换请求的 txid</param>
         /// <returns></returns>
-        public static CallState GetCallState(byte[] txid)
+        public static CallInfo GetCallState(byte[] txid)
         {
             StorageMap callStateMap = Storage.CurrentContext.CreateMap(nameof(callStateMap));
             var data = callStateMap.Get(txid);
             if (data.Length == 0)
                 return null;
-            CallState s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallState;
+            CallInfo s = Neo.SmartContract.Framework.Helper.Deserialize(data) as CallInfo;
             return s;
 
         }
@@ -421,7 +409,7 @@ namespace ZoroBank
             public BigInteger value;
         }
 
-        public class CallState
+        public class CallInfo
         {
             public int state; //1 incall 2 havereturn
             public byte[] witnesscall; //调用者
