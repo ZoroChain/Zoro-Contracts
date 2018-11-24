@@ -29,6 +29,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NFTContract", "NFTContract\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BancorCommon", "Bancor\BancorCommon\BancorCommon.csproj", "{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContract", "TestContract\TestContract.csproj", "{90817FB3-5BA5-4DC7-92DE-29DC531F3937}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestBank", "TestBank\TestBank.csproj", "{1AAA4135-C301-46F0-BD28-2AF41840101D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +87,14 @@ Global
 		{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90817FB3-5BA5-4DC7-92DE-29DC531F3937}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90817FB3-5BA5-4DC7-92DE-29DC531F3937}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90817FB3-5BA5-4DC7-92DE-29DC531F3937}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90817FB3-5BA5-4DC7-92DE-29DC531F3937}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

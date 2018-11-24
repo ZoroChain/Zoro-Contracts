@@ -31,11 +31,11 @@ namespace ZoroBank
         public delegate void deleSend(byte[] txid, byte[] to, BigInteger value);
         [DisplayName("sendmoney")] public static event deleSend Sended;
 
-        [Appcall("e30e5f8aa1b5784570ec38dada546536187e0508")]
+        [Appcall("4b2f4015e65d5cc0b6c0167ab11e93e5ef9c4bdd")]
         static extern object bcpCall(string method, object[] arr);
 
         //管理员账户，改成自己测试用的的
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AGeYNb4jbyLZ7UmCnzVrbvoyiMYceejkFY");
 
         public static object Main(string method, object[] args)
         {
@@ -57,16 +57,16 @@ namespace ZoroBank
                 //记录存款
                 if (method == "deposit")
                 {
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     return Deposit(txid);
                 }
 
                 //兑换请求、收到返回前可以撤销
                 if (method == "exchange")
                 {
-                    byte[] who = (byte[]) args[0];
-                    if (!Runtime.CheckWitness(who)) return false;
-                    BigInteger amount = (BigInteger) args[1];
+                    byte[] who = (byte[])args[0];
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    BigInteger amount = (BigInteger)args[1];
                     byte[] witnessreturn = (byte[])args[2];
                     if (witnessreturn.Length == 0 || amount <= 0) return false;
                     return Exchange(who, amount, witnessreturn);
@@ -79,14 +79,6 @@ namespace ZoroBank
                     return Cancel(txid);
                 }
 
-                //接收返回
-                if (method == "getreturn")
-                {
-                    byte[] txid = (byte[]) args[0];
-                    BigInteger returnvalue = (BigInteger) args[1];
-                    return GetReturn(txid, returnvalue);
-                }
-
                 //处理请求、输出响应
                 if (method == "response")
                 {
@@ -94,6 +86,14 @@ namespace ZoroBank
                     BigInteger returnvalue = (BigInteger) args[1];
                     if (!Runtime.CheckWitness(superAdmin)) return false;
                     return Response(txid, returnvalue);
+                }
+
+                //接收返回
+                if (method == "getreturn")
+                {
+                    byte[] txid = (byte[])args[0];
+                    BigInteger returnvalue = (BigInteger)args[1];
+                    return GetReturn(txid, returnvalue);
                 }
 
                 //查存款数

@@ -35,7 +35,7 @@ namespace NEOBank
         static extern object bcpCall(string method, object[] arr);
 
         //管理员账户，改成自己测试用的的
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AGeYNb4jbyLZ7UmCnzVrbvoyiMYceejkFY");
 
         public static object Main(string method, object[] args)
         {
@@ -56,14 +56,14 @@ namespace NEOBank
 
                 if (method == "deposit") //存款记录
                 {
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     return Deposit(txid);
                 }
 
                 if (method == "exchange") //兑换请求、收到返回前可以撤销
                 {
                     byte[] who = (byte[]) args[0];
-                    if (!Runtime.CheckWitness(who)) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     BigInteger amount = (BigInteger) args[1];
                     byte[] witnessreturn = (byte[])args[2];
                     if (witnessreturn.Length == 0 || amount <= 0) return false;

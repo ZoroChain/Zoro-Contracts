@@ -21,7 +21,7 @@ namespace ZoroBCP
             public BigInteger value;
         }
 
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("APLtzgqBgiQi46YwaZE66oR2ZnrvmemtRp");
 
         public static string name()
         {
@@ -43,7 +43,7 @@ namespace ZoroBCP
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "zoro-bcp test";
+            var magicstr = "zoro-bcp  test";
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 return false;
