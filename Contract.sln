@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContract", "TestContrac
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestBank", "TestBank\TestBank.csproj", "{1AAA4135-C301-46F0-BD28-2AF41840101D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCoin", "TestCoin\TestCoin.csproj", "{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -95,6 +97,10 @@ Global
 		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1AAA4135-C301-46F0-BD28-2AF41840101D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -104,6 +110,7 @@ Global
 		{AACDADD6-0034-472A-9922-0A4F4F21C908} = {AE2FA98D-0578-4C7E-A0E6-16E6A35827E9}
 		{74ECD991-3004-430E-B45E-AE62B66D6AE6} = {AE2FA98D-0578-4C7E-A0E6-16E6A35827E9}
 		{6486A192-A83B-47AB-8FAB-8F89DCB59F2F} = {AE2FA98D-0578-4C7E-A0E6-16E6A35827E9}
+		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7} = {AE2FA98D-0578-4C7E-A0E6-16E6A35827E9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2AD3EA8E-3A77-482F-B21E-7C3B86139A0C}

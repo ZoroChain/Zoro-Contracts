@@ -6,9 +6,9 @@ using System.ComponentModel;
 using System.Numerics;
 using Helper = Neo.SmartContract.Framework.Helper;
 
-namespace ZoroBCP
+namespace TestCoin
 {
-    public class ZoroBCP : SmartContract
+    public class TestCoin : SmartContract
     {
         public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
         [DisplayName("transfer")]
@@ -21,20 +21,21 @@ namespace ZoroBCP
             public BigInteger value;
         }
 
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AKEwcqBMw5ks1D3BikGxQGwd56sm2o3zUG");
+        //管理员账户，改成自己测试用的的
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
 
         public static string name()
         {
-            return "Zoro BlaCat Coin";
+            return "TNT Coin";//名称
         }
 
         public static string symbol()
         {
-            return "Zoro BCP";
+            return "TNT";//简称
         }
 
         private const ulong factor = 100000000;//精度
-        private const ulong totalCoin = 20 * 100000000 * factor;
+        private const ulong totalCoin = 500000000 * factor;//总量
 
         public static byte decimals()
         {
@@ -43,7 +44,7 @@ namespace ZoroBCP
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "zoro-bcp  test";
+            var magicstr = "tnt-test";
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 return false;
@@ -64,16 +65,17 @@ namespace ZoroBCP
                     return symbol();
                 if (method == "decimals")
                     return decimals();
-                if (method == "deploy") //发行到zoro bank合约地址上
+                if (method == "deploy")
                 {
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
                     byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
                     if (total_supply.Length != 0)
                         return false;
-                    var toKey = new byte[] {0x11}.Concat(superAdmin);
-                    Storage.Put(Storage.CurrentContext, toKey, totalCoin);
+                    var keySuperAdmin = new byte[] { 0x11 }.Concat(superAdmin);
+                    Storage.Put(Storage.CurrentContext, keySuperAdmin, totalCoin);
                     Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
+
                     Transferred(null, superAdmin, totalCoin);
                 }
 
@@ -235,7 +237,7 @@ namespace ZoroBCP
             byte[] v = Storage.Get(Storage.CurrentContext, keyTxid);
             if (v.Length == 0)
                 return null;
-            return Neo.SmartContract.Framework.Helper.Deserialize(v) as TransferInfo;
+            return Helper.Deserialize(v) as TransferInfo;
         }
 
         public static bool IsPayable(byte[] to)
