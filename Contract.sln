@@ -33,7 +33,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestContract", "TestContrac
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestBank", "TestBank\TestBank.csproj", "{1AAA4135-C301-46F0-BD28-2AF41840101D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCoin", "TestCoin\TestCoin.csproj", "{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCoin", "Bancor\TestCoin\TestCoin.csproj", "{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
