@@ -35,6 +35,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestBank", "TestBank\TestBa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCoin", "Bancor\TestCoin\TestCoin.csproj", "{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroRootBank", "ZoroRootBank\ZoroRootBank.csproj", "{941FA7C2-7913-4847-90AF-4741513FD113}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroAppBank", "ZoroAppBank\ZoroAppBank.csproj", "{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +105,14 @@ Global
 		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4A2864D6-4AD6-481D-8095-548FBCB8F7D7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{941FA7C2-7913-4847-90AF-4741513FD113}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{941FA7C2-7913-4847-90AF-4741513FD113}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{941FA7C2-7913-4847-90AF-4741513FD113}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{941FA7C2-7913-4847-90AF-4741513FD113}.Release|Any CPU.Build.0 = Release|Any CPU
+		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
