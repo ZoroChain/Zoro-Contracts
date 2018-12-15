@@ -62,7 +62,7 @@ namespace ZoroRootBank
                 //存钱
                 if (method == "deposit")
                 {
-                    var chainHash = (byte[])args[0];//目标链hash
+                    var chainHash = (byte[]) args[0];//目标链hash
                     var assetHash = (byte[]) args[1];//资产hash
                     var txid = (byte[]) args[2];//交易txid
                     var to = (byte[]) args[3];//收款账户
@@ -92,8 +92,8 @@ namespace ZoroRootBank
                 if (method == "sendmoney")
                 {
                     var chainHash = (byte[]) args[0];
-                    var assetHash = (byte[])args[1];//资产hash
-                    var to = (byte[])args[2];//交易txid
+                    var assetHash = (byte[]) args[1];//资产hash
+                    var to = (byte[]) args[2];//交易txid
                     var amount = (BigInteger) args[3];
                     if (chainHash.Length == 0 || assetHash.Length == 0 || to.Length == 0 || amount <= 0)
                         return false;
@@ -115,7 +115,7 @@ namespace ZoroRootBank
                 }
 
             }
-          
+
             return false;
         }
 

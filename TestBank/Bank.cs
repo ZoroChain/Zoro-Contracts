@@ -30,6 +30,7 @@ namespace TestBank
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin =
             Neo.SmartContract.Framework.Helper.ToScriptHash("AGeYNb4jbyLZ7UmCnzVrbvoyiMYceejkFY");
+        private static readonly byte[] asset_id= Neo.SmartContract.Framework.Helper.ToScriptHash("0x306eea29f743b0acf732042bf4e53d55ad020b29c1545a890345d92aa49a350a");
 
         public static object Main(string method, object[] args)
         {
@@ -77,7 +78,7 @@ namespace TestBank
                     return GetCallState(txid);
                 }
                 
-                if (method == "sendmoney") //Zoro侧兑换请求处理完成、发钱
+                if (method == "sendmoney") //Zoro 侧兑换请求处理完成、发钱
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
                     byte[] txid = (byte[]) args[0];
@@ -173,7 +174,7 @@ namespace TestBank
                 transArr[0] = ExecutionEngine.ExecutingScriptHash;
                 transArr[1] = who;
                 transArr[2] = value;
-                bool isSuccess = (bool) bcpCall("transfer_app", transArr);
+                bool isSuccess = (bool)NativeAsset.NativeAssetTransferApp(asset_id, ExecutionEngine.ExecutingScriptHash, who, (long)value);
                 if (isSuccess)
                 {
                     sendMoneyMap.Put(txid, 1);

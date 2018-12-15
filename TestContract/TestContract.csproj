@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{6486A192-A83B-47AB-8FAB-8F89DCB59F2F}</ProjectGuid>
+    <ProjectGuid>{90817FB3-5BA5-4DC7-92DE-29DC531F3937}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>BancorCommon</RootNamespace>
-    <AssemblyName>BancorCommon</AssemblyName>
+    <RootNamespace>TestContract</RootNamespace>
+    <AssemblyName>TestContract</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -32,8 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Neo.SmartContract.Framework">
-      <HintPath>..\..\Neo.SmartContract.Framework.dll</HintPath>
+    <Reference Include="Neo.SmartContract.Framework, Version=2.7.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>.\Neo.SmartContract.Framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -45,13 +46,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BancorCommon.cs" />
+    <Compile Include="TestContract.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="build.tasks" />
-    <None Include="readme.md" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Neo.ConvertTask.dll" />
