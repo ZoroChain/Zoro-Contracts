@@ -23,22 +23,13 @@ namespace ETH_Nep5
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
 
-        public static string name()
-        {
-            return "Zoro-ETH"; //名称
-        }
+        public static string name() => "Zoro-ETH"; //名称
 
-        public static string symbol()
-        {
-            return "ETH"; //简称
-        }
+        public static string symbol() => "ETH"; //简称
 
         private const ulong factor = 100000000; //精度
 
-        public static byte decimals()
-        {
-            return 8;
-        }
+        public static byte decimals() => 8;
 
         public static object Main(string method, object[] args)
         {
@@ -55,25 +46,20 @@ namespace ETH_Nep5
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
-                if (method == "totalSupply")
-                    return totalSupply();
-                if (method == "name")
-                    return name();
-                if (method == "symbol")
-                    return symbol();
-                if (method == "decimals")
-                    return decimals();
+                if (method == "name") return name();
+                if (method == "symbol") return symbol();
+                if (method == "decimals") return decimals();
                 if (method == "deploy")
                 {
                     if (args.Length != 2)
                         return false;
                     if (!Runtime.CheckWitness(superAdmin))
                         return false;
-                    byte[] to = (byte[]) args[0];
-                    BigInteger amount = (BigInteger) args[1];
+                    byte[] to = (byte[])args[0];
+                    BigInteger amount = (BigInteger)args[1];
                     if (amount == 0)
                         return false;
-                    var toKey = new byte[] {0x11}.Concat(to);
+                    var toKey = new byte[] { 0x11 }.Concat(to);
                     BigInteger value = Storage.Get(Storage.CurrentContext, toKey).AsBigInteger();
                     value += amount;
                     Storage.Put(Storage.CurrentContext, toKey, value);
@@ -84,7 +70,7 @@ namespace ETH_Nep5
                 {
                     if (args.Length != 1)
                         return 0;
-                    byte[] who = (byte[]) args[0];
+                    byte[] who = (byte[])args[0];
                     if (who.Length != 20)
                         return false;
                     return balanceOf(who);
@@ -94,13 +80,13 @@ namespace ETH_Nep5
                 {
                     if (args.Length != 3)
                         return false;
-                    byte[] from = (byte[]) args[0];
-                    byte[] to = (byte[]) args[1];
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
                     if (from == to)
                         return true;
                     if (from.Length != 20)
                         return false;
-                    BigInteger value = (BigInteger) args[2];
+                    BigInteger value = (BigInteger)args[2];
                     if (!Runtime.CheckWitness(from))
                         return false;
                     if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
@@ -114,30 +100,25 @@ namespace ETH_Nep5
                 {
                     if (args.Length != 1)
                         return 0;
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     return getTxInfo(txid);
                 }
 
                 #region 升级合约,耗费490,仅限管理员
-
-                if (method == "upgrade")
+                if (method == "updatecontract")
                 {
                     //不是管理员 不能操作
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
-
-                    if (args.Length != 1 && args.Length != 9)
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    if (args.Length != 1 && args.Length != 9) return false;
 
                     byte[] script = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script;
-                    byte[] new_script = (byte[]) args[0];
+                    byte[] new_script = (byte[])args[0];
                     //如果传入的脚本一样 不继续操作
-                    if (script == new_script)
-                        return false;
+                    if (script == new_script) return false;
 
-                    byte[] parameter_list = new byte[] {0x07, 0x10};
+                    byte[] parameter_list = new byte[] { 0x07, 0x10 };
                     byte return_type = 0x05;
-                    bool need_storage = (bool) (object) 05;
+                    bool need_storage = (bool)(object)05;
                     string name = "eth";
                     string version = "1.0";
                     string author = "ZoroChain";
@@ -146,31 +127,23 @@ namespace ETH_Nep5
 
                     if (args.Length == 9)
                     {
-                        parameter_list = (byte[]) args[1];
-                        return_type = (byte) args[2];
-                        need_storage = (bool) args[3];
-                        name = (string) args[4];
-                        version = (string) args[5];
-                        author = (string) args[6];
-                        email = (string) args[7];
-                        description = (string) args[8];
+                        parameter_list = (byte[])args[1];
+                        return_type = (byte)args[2];
+                        need_storage = (bool)args[3];
+                        name = (string)args[4];
+                        version = (string)args[5];
+                        author = (string)args[6];
+                        email = (string)args[7];
+                        description = (string)args[8];
                     }
-
-                    Contract.Migrate(new_script, parameter_list, return_type, need_storage, name, version, author,
-                        email, description);
+                    Contract.Migrate(new_script, parameter_list, return_type, need_storage, name, version, author, email, description);
                     return true;
                 }
-
                 #endregion
             }
 
             return false;
 
-        }
-
-        private static object totalSupply()
-        {
-            return null;
         }
 
         private static bool transfer(byte[] from, byte[] to, BigInteger value)
@@ -181,7 +154,7 @@ namespace ETH_Nep5
                 return true;
             if (from.Length > 0)
             {
-                var keyFrom = new byte[] {0x11}.Concat(from);
+                var keyFrom = new byte[] { 0x11 }.Concat(from);
                 BigInteger from_value = Storage.Get(Storage.CurrentContext, keyFrom).AsBigInteger();
                 if (from_value < value)
                     return false;
@@ -195,7 +168,7 @@ namespace ETH_Nep5
 
             if (to.Length > 0)
             {
-                var keyTo = new byte[] {0x11}.Concat(to);
+                var keyTo = new byte[] { 0x11 }.Concat(to);
                 BigInteger to_value = Storage.Get(Storage.CurrentContext, keyTo).AsBigInteger();
                 Storage.Put(Storage.CurrentContext, keyTo, to_value + value);
             }
@@ -213,19 +186,19 @@ namespace ETH_Nep5
             info.value = value;
             byte[] txInfo = Neo.SmartContract.Framework.Helper.Serialize(info);
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-            var keyTxid = new byte[] {0x13}.Concat(txid);
+            var keyTxid = new byte[] { 0x13 }.Concat(txid);
             Storage.Put(Storage.CurrentContext, keyTxid, txInfo);
         }
 
         private static object balanceOf(byte[] who)
         {
-            var key = new byte[] {0x11}.Concat(who);
+            var key = new byte[] { 0x11 }.Concat(who);
             return Storage.Get(Storage.CurrentContext, key).AsBigInteger();
         }
 
         private static TransferInfo getTxInfo(byte[] txid)
         {
-            byte[] keyTxid = new byte[] {0x13}.Concat(txid);
+            byte[] keyTxid = new byte[] { 0x13 }.Concat(txid);
             byte[] v = Storage.Get(Storage.CurrentContext, keyTxid);
             if (v.Length == 0)
                 return null;

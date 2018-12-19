@@ -10,7 +10,7 @@ namespace TestContract
     {
         public static object Main(string method, object[] args)
         {
-            var magicstr = "Test_Contract";
+            var magicstr = "Test_Contract_v0.32";
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 return false;
@@ -39,32 +39,32 @@ namespace TestContract
                 if (method == "name")
                 {
                     byte[] asset_id = (byte[])args[0];
-                    return NativeAsset.NativeAssetName(asset_id);
+                    return NativeAsset.Name(asset_id);
                 }
 
                 if (method == "symbol")
                 {
                     byte[] asset_id = (byte[])args[0];
-                    return NativeAsset.NativeAssetSymbol(asset_id);
+                    return NativeAsset.Symbol(asset_id);
                 }
 
                 if (method == "decimals")
                 {
                     byte[] asset_id = (byte[])args[0];
-                    return NativeAsset.NativeAssetDecimals(asset_id);
+                    return NativeAsset.Decimals(asset_id);
                 }
 
                 if (method == "totalSupply")
                 {
                     byte[] asset_id = (byte[])args[0];
-                    return NativeAsset.NativeAssetTotalSupply(asset_id);
+                    return NativeAsset.TotalSupply(asset_id);
                 }
 
                 if (method == "balanceOf")
                 {
                     byte[] asset_id = (byte[])args[0];
                     byte[] address = (byte[])args[1];
-                    return NativeAsset.NativeAssetBalanceOf(asset_id, address);
+                    return NativeAsset.BalanceOf(asset_id, address);
                 }
 
                 if (method == "transfer")
@@ -73,7 +73,7 @@ namespace TestContract
                     byte[] from = (byte[])args[1];
                     byte[] to = (byte[])args[2];
                     BigInteger value = (BigInteger)args[3];
-                    return NativeAsset.NativeAssetTransfer(asset_id, from, to, value);
+                    return NativeAsset.Transfer(asset_id, from, to, value);
                 }
 
                 if (method == "transfer_app")
@@ -82,7 +82,63 @@ namespace TestContract
                     byte[] from = ExecutionEngine.ExecutingScriptHash;
                     byte[] to = (byte[])args[1];
                     BigInteger value = (BigInteger)args[2];
-                    return NativeAsset.NativeAssetTransferApp(asset_id, from, to, value);
+                    return NativeAsset.TransferApp(asset_id, from, to, value);
+                }
+
+                if (method == "gettxfrom")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return NativeAsset.GetTransferState(asset_id, txid).From;
+                }
+
+                if (method == "gettxto")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return NativeAsset.GetTransferState(asset_id, txid).To;
+                }
+
+                if (method == "gettxvalue")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return NativeAsset.GetTransferState(asset_id, txid).Value;
+                }
+
+                if (method == "gettxstate")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return NativeAsset.GetTransferState(asset_id, txid);
+                }
+
+                if (method == "gettxstate1")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return NativeAsset.GetTransferState(asset_id, txid).Serialize();
+                }
+
+                if (method == "gettxstate2")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return NativeAsset.GetTransferState(asset_id, txid) as TransferState;
+                }
+
+                if (method == "gettxstate3")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return ExecutionEngine.ScriptContainer as TransferState;
+                }
+
+                if (method == "gettxstate4")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] txid = (byte[])args[1];
+                    return ExecutionEngine.ScriptContainer;
                 }
 
             }

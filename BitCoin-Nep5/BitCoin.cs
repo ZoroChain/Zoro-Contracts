@@ -23,22 +23,13 @@ namespace BitCoin_Nep5
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
 
-        public static string name()
-        {
-            return "Zoro-BitCoin";//名称
-        }
+        public static string name() => "Zoro-BitCoin";//名称
 
-        public static string symbol()
-        {
-            return "BTC";//简称
-        }
+        public static string symbol() => "BTC";//简称
 
         private const ulong factor = 100000000;//精度
-       
-        public static byte decimals()
-        {
-            return 8;
-        }
+
+        public static byte decimals() => 8;
 
         public static object Main(string method, object[] args)
         {
@@ -55,14 +46,9 @@ namespace BitCoin_Nep5
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
-                if (method == "totalSupply")
-                    return totalSupply();
-                if (method == "name")
-                    return name();
-                if (method == "symbol")
-                    return symbol();
-                if (method == "decimals")
-                    return decimals();
+                if (method == "name") return name();
+                if (method == "symbol") return symbol();
+                if (method == "decimals") return decimals();
                 if (method == "deploy")
                 {
                     if (args.Length != 2)
@@ -96,8 +82,6 @@ namespace BitCoin_Nep5
                         return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
-                    if (from == to)
-                        return true;
                     if (from.Length != 20)
                         return false;
                     BigInteger value = (BigInteger)args[2];
@@ -109,7 +93,7 @@ namespace BitCoin_Nep5
                         return false;
                     return transfer(from, to, value);
                 }
-                
+
                 if (method == "getTxInfo")
                 {
                     if (args.Length != 1)
@@ -119,29 +103,25 @@ namespace BitCoin_Nep5
                 }
 
                 #region 升级合约,耗费490,仅限管理员
-                if (method == "upgrade")
+                if (method == "updatecontract")
                 {
                     //不是管理员 不能操作
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
-
-                    if (args.Length != 1 && args.Length != 9)
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    if (args.Length != 1 && args.Length != 9) return false;
 
                     byte[] script = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script;
                     byte[] new_script = (byte[])args[0];
                     //如果传入的脚本一样 不继续操作
-                    if (script == new_script)
-                        return false;
+                    if (script == new_script) return false;
 
                     byte[] parameter_list = new byte[] { 0x07, 0x10 };
                     byte return_type = 0x05;
                     bool need_storage = (bool)(object)05;
-                    string name = "bcp";
+                    string name = "btc";
                     string version = "1.0";
                     string author = "ZoroChain";
                     string email = "0";
-                    string description = "bcp";
+                    string description = "btc";
 
                     if (args.Length == 9)
                     {
@@ -162,11 +142,6 @@ namespace BitCoin_Nep5
 
             return false;
 
-        }
-
-        private static object totalSupply()
-        {
-            return null;
         }
 
         private static bool transfer(byte[] from, byte[] to, BigInteger value)

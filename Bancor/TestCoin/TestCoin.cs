@@ -24,23 +24,14 @@ namespace TestCoin
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AdsNmzKPPG7HfmQpacZ4ixbv9XJHJs2ACz");
 
-        public static string name()
-        {
-            return "TNT Coin";//名称
-        }
+        public static string name() => "TNT Coin";//名称
 
-        public static string symbol()
-        {
-            return "TNT";//简称
-        }
+        public static string symbol() => "TNT";//简称
 
         private const ulong factor = 100000000;//精度
         private const ulong totalCoin = 500000000 * factor;//总量
 
-        public static byte decimals()
-        {
-            return 8;
-        }
+        public static byte decimals() => 8;
 
         public static object Main(string method, object[] args)
         {
@@ -57,14 +48,37 @@ namespace TestCoin
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
-                if (method == "totalSupply")
-                    return totalSupply();
-                if (method == "name")
-                    return name();
-                if (method == "symbol")
-                    return symbol();
-                if (method == "decimals")
-                    return decimals();
+                if (method == "totalSupply") return totalSupply();
+                if (method == "name") return name();
+                if (method == "symbol") return symbol();
+                if (method == "decimals") return decimals();
+                if (method == "balanceOf")
+                {
+                    if (args.Length != 1) return 0;
+                    byte[] who = (byte[])args[0];
+                    if (who.Length != 20) return false;
+                    return balanceOf(who);
+                }
+
+                if (method == "getTxInfo")
+                {
+                    if (args.Length != 1) return 0;
+                    byte[] txid = (byte[])args[0];
+                    return getTxInfo(txid);
+                }
+
+                //停用合约操作、isStop != 0 表示合约已停用，停用查询以外的所有接口
+                BigInteger isStop = Storage.Get(Storage.CurrentContext, "isStopped").AsBigInteger();
+                if (method == "setpause")
+                {
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    BigInteger setValue = (BigInteger)args[0];
+                    if (isStop == setValue) return true;
+                    Storage.Put(Storage.CurrentContext, "isStopped", setValue);
+                    return true;
+                }
+                if (isStop != 0) return false;
+
                 if (method == "deploy")
                 {
                     if (!Runtime.CheckWitness(superAdmin))
@@ -79,24 +93,12 @@ namespace TestCoin
                     Transferred(null, superAdmin, totalCoin);
                 }
 
-                if (method == "balanceOf")
-                {
-                    if (args.Length != 1)
-                        return 0;
-                    byte[] who = (byte[])args[0];
-                    if (who.Length != 20)
-                        return false;
-                    return balanceOf(who);
-                }
-
                 if (method == "transfer")
                 {
                     if (args.Length != 3)
                         return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
-                    if (from == to)
-                        return true;
                     if (from.Length != 20 || to.Length != 20)
                         return false;
                     BigInteger value = (BigInteger)args[2];
@@ -122,38 +124,26 @@ namespace TestCoin
                     return transfer(from, to, value);
                 }
 
-                if (method == "getTxInfo")
-                {
-                    if (args.Length != 1)
-                        return 0;
-                    byte[] txid = (byte[])args[0];
-                    return getTxInfo(txid);
-                }
-
                 #region 升级合约,耗费490,仅限管理员
-                if (method == "upgrade")
+                if (method == "updatecontract")
                 {
                     //不是管理员 不能操作
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
-
-                    if (args.Length != 1 && args.Length != 9)
-                        return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    if (args.Length != 1 && args.Length != 9) return false;
 
                     byte[] script = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script;
                     byte[] new_script = (byte[])args[0];
                     //如果传入的脚本一样 不继续操作
-                    if (script == new_script)
-                        return false;
+                    if (script == new_script) return false;
 
                     byte[] parameter_list = new byte[] { 0x07, 0x10 };
                     byte return_type = 0x05;
                     bool need_storage = (bool)(object)05;
-                    string name = "bcp";
+                    string name = "testcoin";
                     string version = "1.0";
                     string author = "ZoroChain";
                     string email = "0";
-                    string description = "bcp";
+                    string description = "test";
 
                     if (args.Length == 9)
                     {

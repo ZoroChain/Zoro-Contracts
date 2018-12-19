@@ -37,7 +37,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCoin", "Bancor\TestCoin
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroRootBank", "ZoroRootBank\ZoroRootBank.csproj", "{941FA7C2-7913-4847-90AF-4741513FD113}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroAppBank", "ZoroAppBank\ZoroAppBank.csproj", "{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ABCContract", "ZoroAppBank\ABCContract.csproj", "{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
