@@ -1,6 +1,7 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
+using System;
 using System.ComponentModel;
 using System.Numerics;
 using Helper = Neo.SmartContract.Framework.Helper;
@@ -12,38 +13,40 @@ namespace NFT_Token
     /// </summary>
     public class PartnerToken : SmartContract
     {
-        //管理员账户，改成自己测试用的的
+        //管理员
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
         //BCT合约hash
         [Appcall("40a80749ef62da6fc3d74dbf6fc7745148922372")]
         static extern object bctCall(string method, object[] arr);
 
-        public delegate void deleExchange(byte[] from, byte[] to, byte[] tokenId);
         [DisplayName("exchange")]
-        public static event deleExchange Exchanged;
+        public static event Action<byte[], byte[], byte[]> Exchanged;//(byte[] from, byte[] to, byte[] tokenId);
 
-        public delegate void deleUpgrade(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank);
         [DisplayName("upgrade")]
-        public static event deleUpgrade Upgraded;
+        public static event Action<byte[], byte[], BigInteger, BigInteger> Upgraded;//(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank);
 
         public static string Name() => "BlaCat Partner Certificate Token";//Blacat 合伙人证书 NFT
-        
+
         public static string Symbol() => "BPT";//简称
-        
+
         public static string Version() => "1.0.0"; //版本
+
+        /// <summary>
+        ///   NFT 合伙人证书合约
+        ///   Parameter List: 0710
+        ///   Return List: 05
+        /// </summary>
+        /// <param name="method">
+        ///   接口名称
+        /// </param>
+        /// <param name="args">
+        ///   参数列表
+        /// </param>
 
         public static object Main(string method, object[] args)
         {
             var magicstr = "BlaCat Partner Certificate Token";
-            if (Runtime.Trigger == TriggerType.Verification)
-            {
-                return false;
-            }
-            else if (Runtime.Trigger == TriggerType.VerificationR)
-            {
-                return true;
-            }
-            else if (Runtime.Trigger == TriggerType.Application)
+            if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
@@ -53,7 +56,7 @@ namespace NFT_Token
 
                 if (method == "getnftinfo")
                 {
-                    byte[] address = (byte[]) args[0];
+                    byte[] address = (byte[])args[0];
                     if (address.Length != 20) return false;
                     StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
                     byte[] tokenId = addressMap.Get(address);
@@ -63,17 +66,17 @@ namespace NFT_Token
 
                 if (method == "getnftinfobyid")
                 {
-                    byte[] tokenId = (byte[])args[0];                    
+                    byte[] tokenId = (byte[])args[0];
                     if (tokenId.Length == 0) return false;
                     return GetNftByTokenId(tokenId);
                 }
 
                 if (method == "gettxinfo")
                 {
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     if (txid.Length == 0) return false;
                     return GetTxInfoByTxid(txid);
-                }  
+                }
 
                 if (method == "getcount")
                 {
@@ -105,21 +108,21 @@ namespace NFT_Token
                 if (method == "setconfig")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
-                    BigInteger silverPrice = (BigInteger) args[0];
-                    BigInteger goldPrice = (BigInteger) args[1];
-                    BigInteger platinumPrice = (BigInteger) args[2];
-                    BigInteger diamondPrice = (BigInteger) args[3];
+                    BigInteger silverPrice = (BigInteger)args[0];
+                    BigInteger goldPrice = (BigInteger)args[1];
+                    BigInteger platinumPrice = (BigInteger)args[2];
+                    BigInteger diamondPrice = (BigInteger)args[3];
 
-                    BigInteger leaguerInvitePoint = (BigInteger) args[4];
-                    BigInteger silverInvitePoint = (BigInteger) args[5];
+                    BigInteger leaguerInvitePoint = (BigInteger)args[4];
+                    BigInteger silverInvitePoint = (BigInteger)args[5];
 
-                    BigInteger goldInvitePoint = (BigInteger) args[6];
-                    BigInteger platinumInvitePoint = (BigInteger) args[7];
-                    BigInteger diamondInvitePoint = (BigInteger) args[8];
+                    BigInteger goldInvitePoint = (BigInteger)args[6];
+                    BigInteger platinumInvitePoint = (BigInteger)args[7];
+                    BigInteger diamondInvitePoint = (BigInteger)args[8];
 
-                    BigInteger goldUpgradePoint = (BigInteger) args[9];
-                    BigInteger platinumUpgradePoint = (BigInteger) args[10];
-                    BigInteger diamondUpgradePoint = (BigInteger) args[11];
+                    BigInteger goldUpgradePoint = (BigInteger)args[9];
+                    BigInteger platinumUpgradePoint = (BigInteger)args[10];
+                    BigInteger diamondUpgradePoint = (BigInteger)args[11];
 
                     byte[] gatheringAddress = (byte[])args[12];
 
@@ -234,7 +237,7 @@ namespace NFT_Token
                 //升级
                 if (method == "upgrade")
                 {
-                    byte[] txid = (byte[]) args[0];
+                    byte[] txid = (byte[])args[0];
                     var tx = GetBctTxInfo(txid);
                     if (tx.@from.Length == 0 || tx.to.AsBigInteger() != config.GatheringAddress.AsBigInteger() || tx.value <= 0)
                         return false;
