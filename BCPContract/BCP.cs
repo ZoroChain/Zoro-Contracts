@@ -1,133 +1,105 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
-using System;
 using System.ComponentModel;
-using System.Data.SqlTypes;
-using System.Linq.Expressions;
 using System.Numerics;
-using System.Runtime.Remoting.Messaging;
 using Neo.SmartContract.Framework.Services.System;
 using Helper = Neo.SmartContract.Framework.Helper;
+using System;
 
 namespace BcpContract
 {
     public class BCP : SmartContract
     {
-        public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
         [DisplayName("transfer")]
-        public static event deleTransfer Transferred;
-
-        public class TransferInfo
-        {
-            public byte[] from;
-            public byte[] to;
-            public BigInteger value;
-        }
+        public static event Action<byte[], byte[], BigInteger> Transferred;//(byte[] from, byte[] to, BigInteger value)
 
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AcQLYjGbQU2bEQ8RKFXUcf8XvromfUQodq");
 
-        public static string name()
-        {
-            return "BlaCat Coin";//名称
-        }
+        private static readonly byte[] Active = { };       // 所有接口可用
+        private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
+        private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
-        public static string symbol()
-        {
-            return "BCP";//简称
-        }
 
         private const ulong factor = 100000000;//精度
         private const ulong totalCoin = 20 * 100000000 * factor;//总量
 
-        public static byte decimals()
-        {
-            return 8;
-        }
-
         public static object Main(string method, object[] args)
         {
             var magicstr = "bcp-test";
-            if (Runtime.Trigger == TriggerType.Verification)
-            {
-                return false;
-            }
-            else if (Runtime.Trigger == TriggerType.VerificationR)
-            {
-                return true;
-            }
-            else if (Runtime.Trigger == TriggerType.Application)
+            if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
-                if (method == "totalSupply")
-                    return totalSupply();
-                if (method == "name")
-                    return name();
-                if (method == "symbol")
-                    return symbol();
-                if (method == "decimals")
-                    return decimals();
+                //管理员权限     设置合约状态          
+                if (method == "setstate")
+                {
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    BigInteger setValue = (BigInteger)args[0];
+                    if (setValue == 0)
+                        Storage.Put(Context(), "state", Active);
+                    if (setValue == 1)
+                        Storage.Put(Context(), "state", Inactive);
+                    if (setValue == 2)
+                        Storage.Put(Context(), "state", AllStop);
+                    return true;
+                }
+
+                //invoke
+                if (method == "getstate") return GetState();
+
+                // stop 表示合约全部接口已停用
+                if (GetState() == AllStop) return false;
+
+                if (method == "totalSupply") return TotalSupply();
+                if (method == "name") return Name();
+                if (method == "symbol") return Symbol();
+                if (method == "decimals") return Decimals();
                 if (method == "balanceOf")
                 {
-                    if (args.Length != 1)
-                        return 0;
                     byte[] who = (byte[])args[0];
-                    if (who.Length != 20)
-                        return false;
+                    if (who.Length != 20) return false;
+
                     return balanceOf(who);
                 }
 
                 if (method == "getTxInfo")
                 {
-                    if (args.Length != 1)
-                        return 0;
                     byte[] txid = (byte[])args[0];
+                    if (txid.Length != 32) return false;
                     return getTxInfo(txid);
                 }
 
-                //停用合约操作、isStop != 0 表示合约已停用，停用查询以外的所有接口
-                BigInteger isStop = Storage.Get(Storage.CurrentContext, "isStopped").AsBigInteger();
-                if (method == "setpause")
-                {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    BigInteger setValue = (BigInteger)args[0];
-                    if (isStop == setValue) return true;
-                    Storage.Put(Storage.CurrentContext, "isStopped", setValue);
-                    return true;
-                }
-                if (isStop != 0) return false;
+                if (GetState() != Active) return false;
 
                 if (method == "deploy")
                 {
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
-                    byte[] total_supply = Storage.Get(Storage.CurrentContext, "totalSupply");
-                    if (total_supply.Length != 0)
-                        return false;
-                    var keySuperAdmin = new byte[] { 0x11 }.Concat(superAdmin);
-                    Storage.Put(Storage.CurrentContext, keySuperAdmin, totalCoin);
-                    Storage.Put(Storage.CurrentContext, "totalSupply", totalCoin);
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    byte[] total_supply = Storage.Get(Context(), "totalSupply");
+                    if (total_supply.Length != 0) return false;
 
+                    var keySuperAdmin = AddressKey(superAdmin);
+                    Storage.Put(Context(), keySuperAdmin, totalCoin);
+                    Storage.Put(Context(), "totalSupply", totalCoin);
+
+                    //notify
                     Transferred(null, superAdmin, totalCoin);
                 }
 
                 if (method == "transfer")
                 {
-                    if (args.Length != 3)
-                        return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
-                    if (from.Length != 20 || to.Length != 20)
-                        return false;
+                    if (from.Length != 20 || to.Length != 20) return false;
+
                     BigInteger value = (BigInteger)args[2];
-                    if (!Runtime.CheckWitness(from))
-                        return false;
-                    if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
-                        return false;
-                    if (!IsPayable(to))
-                        return false;
-                    return transfer(from, to, value);
+
+                    if (!Runtime.CheckWitness(from)) return false;
+
+                    if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger()) return false;
+                    if (!IsPayable(to)) return false;
+
+                    return Transfer(from, to, value);
                 }
 
                 if (method == "transfer_app")
@@ -140,7 +112,7 @@ namespace BcpContract
 
                     if (from.AsBigInteger() != callscript.AsBigInteger())
                         return false;
-                    return transfer(from, to, value);
+                    return Transfer(from, to, value);
                 }
 
                 #region 升级合约,耗费490,仅限管理员
@@ -185,12 +157,25 @@ namespace BcpContract
 
         }
 
-        private static object totalSupply()
+        public static string Name() => "BlaCat Point";//名称
+
+        public static string Symbol() => "BCP";//简称
+
+        public static byte Decimals() => 8;//精度
+
+        private static StorageContext Context() => Storage.CurrentContext;
+
+        private static byte[] GetState()
         {
-            return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger();
+            return Storage.Get(Context(), "state");
         }
 
-        private static bool transfer(byte[] from, byte[] to, BigInteger value)
+        private static object TotalSupply()
+        {
+            return Storage.Get(Context(), "totalSupply").AsBigInteger();
+        }
+
+        private static bool Transfer(byte[] from, byte[] to, BigInteger value)
         {
             if (value <= 0)
                 return false;
@@ -199,22 +184,22 @@ namespace BcpContract
             if (from.Length > 0)
             {
                 var keyFrom = new byte[] { 0x11 }.Concat(from);
-                BigInteger from_value = Storage.Get(Storage.CurrentContext, keyFrom).AsBigInteger();
+                BigInteger from_value = Storage.Get(Context(), keyFrom).AsBigInteger();
                 if (from_value < value)
                     return false;
                 if (from_value == value)
-                    Storage.Delete(Storage.CurrentContext, keyFrom);
+                    Storage.Delete(Context(), keyFrom);
                 else
                 {
-                    Storage.Put(Storage.CurrentContext, keyFrom, from_value - value);
+                    Storage.Put(Context(), keyFrom, from_value - value);
                 }
             }
 
             if (to.Length > 0)
             {
                 var keyTo = new byte[] { 0x11 }.Concat(to);
-                BigInteger to_value = Storage.Get(Storage.CurrentContext, keyTo).AsBigInteger();
-                Storage.Put(Storage.CurrentContext, keyTo, to_value + value);
+                BigInteger to_value = Storage.Get(Context(), keyTo).AsBigInteger();
+                Storage.Put(Context(), keyTo, to_value + value);
             }
 
             setTxInfo(from, to, value);
@@ -231,19 +216,19 @@ namespace BcpContract
             byte[] txInfo = Helper.Serialize(info);
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
             var keyTxid = new byte[] { 0x13 }.Concat(txid);
-            Storage.Put(Storage.CurrentContext, keyTxid, txInfo);
+            Storage.Put(Context(), keyTxid, txInfo);
         }
 
         private static object balanceOf(byte[] who)
         {
-            var keyAddress = new byte[] { 0x11 }.Concat(who);
-            return Storage.Get(Storage.CurrentContext, keyAddress).AsBigInteger();
+            var keyAddress = AddressKey(who);
+            return Storage.Get(Context(), keyAddress).AsBigInteger();
         }
 
         private static TransferInfo getTxInfo(byte[] txid)
         {
-            byte[] keyTxid = new byte[] { 0x13 }.Concat(txid);
-            byte[] v = Storage.Get(Storage.CurrentContext, keyTxid);
+            byte[] keyTxid = TxidKey(txid);
+            byte[] v = Storage.Get(Context(), keyTxid);
             if (v.Length == 0)
                 return null;
             return Helper.Deserialize(v) as TransferInfo;
@@ -256,5 +241,15 @@ namespace BcpContract
                 return true;
             return c.IsPayable;
         }
+
+        private static byte[] AddressKey(byte[] address) => new byte[] { 0x11 }.Concat(address);
+        private static byte[] TxidKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
+    }
+
+    public class TransferInfo
+    {
+        public byte[] from;
+        public byte[] to;
+        public BigInteger value;
     }
 }

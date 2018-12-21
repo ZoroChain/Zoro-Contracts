@@ -235,7 +235,7 @@ namespace ZoroBCP
             byte[] v = Storage.Get(Storage.CurrentContext, keyTxid);
             if (v.Length == 0)
                 return null;
-            return Neo.SmartContract.Framework.Helper.Deserialize(v) as TransferInfo;
+            return Helper.Deserialize(v) as TransferInfo;
         }
 
         public static bool IsPayable(byte[] to)
