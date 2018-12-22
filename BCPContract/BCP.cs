@@ -104,14 +104,13 @@ namespace BcpContract
 
                 if (method == "transfer_app")
                 {
-                    if (args.Length != 3)
-                        return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
+                    if (from.Length != 20 || to.Length != 20) return false;
+
                     BigInteger value = (BigInteger)args[2];
 
-                    if (from.AsBigInteger() != callscript.AsBigInteger())
-                        return false;
+                    if (from.AsBigInteger() != callscript.AsBigInteger()) return false;
                     return Transfer(from, to, value);
                 }
 
@@ -181,26 +180,21 @@ namespace BcpContract
                 return false;
             if (from == to)
                 return true;
-            if (from.Length > 0)
+
+            var keyFrom = new byte[] { 0x11 }.Concat(from);
+            BigInteger from_value = Storage.Get(Context(), keyFrom).AsBigInteger();
+            if (from_value < value)
+                return false;
+            if (from_value == value)
+                Storage.Delete(Context(), keyFrom);
+            else
             {
-                var keyFrom = new byte[] { 0x11 }.Concat(from);
-                BigInteger from_value = Storage.Get(Context(), keyFrom).AsBigInteger();
-                if (from_value < value)
-                    return false;
-                if (from_value == value)
-                    Storage.Delete(Context(), keyFrom);
-                else
-                {
-                    Storage.Put(Context(), keyFrom, from_value - value);
-                }
+                Storage.Put(Context(), keyFrom, from_value - value);
             }
 
-            if (to.Length > 0)
-            {
-                var keyTo = new byte[] { 0x11 }.Concat(to);
-                BigInteger to_value = Storage.Get(Context(), keyTo).AsBigInteger();
-                Storage.Put(Context(), keyTo, to_value + value);
-            }
+            var keyTo = new byte[] { 0x11 }.Concat(to);
+            BigInteger to_value = Storage.Get(Context(), keyTo).AsBigInteger();
+            Storage.Put(Context(), keyTo, to_value + value);
 
             setTxInfo(from, to, value);
             Transferred(from, to, value);

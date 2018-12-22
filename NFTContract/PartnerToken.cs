@@ -29,8 +29,8 @@ namespace NFT_Token
         [DisplayName("addpoint")]
         public static event Action<byte[], byte[], BigInteger> AddPointed; //(tokenID, address, point)
 
-        private static readonly byte[] Active = { };       // 所有接口可用
-        private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
+        private static readonly byte[] Active = { };          // 所有接口可用
+        private static readonly byte[] Inactive = { 0x01 };   //只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
         /// <summary>
@@ -77,33 +77,25 @@ namespace NFT_Token
                 if (method == "getnftinfo")
                 {
                     var tokenId = GetTokenIdByAddress((byte[])args[0]);
-                    if (tokenId.Length != 32) return false;
+                    if (tokenId.Length != 32) return null;
                     return GetNftByTokenId(tokenId);
                 }
 
                 if (method == "getnftinfobyid")
                 {
                     byte[] tokenId = (byte[])args[0];
-                    if (tokenId.Length != 32) return false;
+                    if (tokenId.Length != 32) return null;
                     return GetNftByTokenId(tokenId);
                 }
 
                 if (method == "gettxinfo")
                 {
                     byte[] txid = (byte[])args[0];
-                    if (txid.Length != 32) return false;
+                    if (txid.Length != 32) return null;
                     return GetTxInfoByTxid(txid);
                 }
 
-                if (method == "getcount")
-                {
-                    var nftCount = new NftCount();
-                    StorageMap nftCountMap = Storage.CurrentContext.CreateMap("nftCountMap");
-                    var data = nftCountMap.Get("nftCount");
-                    if (data.Length > 0)
-                        nftCount = data.Deserialize() as NftCount;
-                    return nftCount;
-                }
+                if (method == "getcount") return GetNftCount();
 
                 // 以下接口只有 Active 时可用
                 if (GetState() != Active) return false;
@@ -150,9 +142,8 @@ namespace NFT_Token
                         GatheringAddress = gatheringAddress
                     };
 
-                    StorageMap configMap = Storage.CurrentContext.CreateMap("configMap");
                     byte[] configBytes = Helper.Serialize(configs);
-                    configMap.Put("config", configBytes);
+                    Storage.Put(Context(), "config", configBytes);
                     return true;
                 }
 
@@ -209,7 +200,9 @@ namespace NFT_Token
 
                     var tokenId = GetTokenIdByAddress(address);
 
-                    return AddPoint(tokenId, config.LeaguerInvitePoint);
+                    AddPoint(tokenId, config.LeaguerInvitePoint);
+
+                    return true;
                 }
 
                 #region 升级合约,耗费490,仅限管理员
@@ -316,10 +309,10 @@ namespace NFT_Token
 
             //给邀请者证书加分
             AddPoint(inviterTokenId, config.SilverInvitePoint);
-            
-            SetTxUsed(txid);
 
             SaveTxInfo(null, tx.@from, nftInfo.TokenId);
+
+            SetTxUsed(txid);
 
             //notify
             Exchanged(null, tx.@from, nftInfo.TokenId); 
@@ -329,6 +322,7 @@ namespace NFT_Token
         private static bool UpgradeNft(Config config, byte[] txid)
         {
             var tx = GetBctTxInfo(txid);
+
             if (tx.@from.Length == 0 || tx.to.AsBigInteger() != config.GatheringAddress.AsBigInteger() || tx.value <= 0)
                 return false;
             if (!IsHaveNft(tx.from)) return false;
@@ -345,16 +339,16 @@ namespace NFT_Token
                 //各等级数量变化
                 AddNftCount(nftInfo.Rank);
 
-                SetTxUsed(txid);
-
-                //升级给邀请者加分
-                //获取要加的分数
+                //升级给邀请者加分  获取要加的分数
                 BigInteger addPoint = GetAddPoint(config, nftInfo.Rank);
 
                 AddPoint(nftInfo.InviterTokenId, addPoint);
 
+                SetTxUsed(txid);
+
                 //notify
                 Upgraded(tokenId, tx.@from, nftInfo.Rank - 1, nftInfo.Rank);
+
                 return true;
             }
             return false;
@@ -379,25 +373,21 @@ namespace NFT_Token
             SaveNftInfo(fromNftInfo);
 
             SaveTxInfo(from, to, fromTokenId);
-
+            //notify
             Exchanged(from, to, fromTokenId);
 
             return true;
         }
 
-        private static bool AddPoint(byte[] tokenId, BigInteger pointValue)
+        private static void AddPoint(byte[] tokenId, BigInteger pointValue)
         {
-            if (tokenId.Length == 0) return false;
-
             var nftInfo = GetNftByTokenId(tokenId);
 
             nftInfo.ContributionPoint += pointValue;
 
             SaveNftInfo(nftInfo);
-
             //notify
             AddPointed(tokenId, nftInfo.Owner, pointValue);
-            return true;
         }
 
         private static void DeleteAddressMap(byte[] address)
@@ -470,11 +460,7 @@ namespace NFT_Token
 
         public static void AddNftCount(BigInteger rank)
         {
-            var nftCount = new NftCount();
-            StorageMap nftCountMap = Storage.CurrentContext.CreateMap("nftCountMap");
-            var data = nftCountMap.Get("nftCount");
-            if (data.Length > 0)
-                nftCount = data.Deserialize() as NftCount;
+            var nftCount = GetNftCount();
             if (rank == 1)
             {
                 nftCount.AllCount += 1;
@@ -496,7 +482,7 @@ namespace NFT_Token
                 nftCount.PlatinumCount -= 1;
             }
             var nftCountBytes = Helper.Serialize(nftCount);
-            nftCountMap.Put("nftCount", nftCountBytes);
+            Storage.Put(Context(), "nftCount", nftCountBytes);
         }
 
         public static void SaveNftInfo(NFTInfo nftInfo)
@@ -520,11 +506,18 @@ namespace NFT_Token
 
         public static Config GetConfig()
         {
-            StorageMap configMap = Storage.CurrentContext.CreateMap("configMap");
-            var configBytes = configMap.Get("config");
+            var configBytes = Storage.Get(Context(), "config");
             if (configBytes.Length == 0)
                 return new Config();
             return configBytes.Deserialize() as Config;
+        }
+
+        private static NftCount GetNftCount()
+        {
+            var data = Storage.Get(Context(), "nftCount");
+            if (data.Length == 0)
+                return new NftCount();
+            return data.Deserialize() as NftCount;
         }
 
         public static NFTInfo GetNftByTokenId(byte[] tokenId)
