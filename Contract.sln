@@ -39,6 +39,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoroRootBank", "ZoroRootBan
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ABCContract", "ZoroAppBank\ABCContract.csproj", "{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemberContract", "MemberContract\MemberContract.csproj", "{1C76DAD4-6A77-4005-8B7B-4769F82FB307}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BrokerContract", "BrokerContract\BrokerContract.csproj", "{FAF55E97-B92A-4A25-B300-135AC3C8E387}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -113,6 +117,14 @@ Global
 		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{59C77D08-FF9A-4AD5-A077-3F90DB1C1F07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1C76DAD4-6A77-4005-8B7B-4769F82FB307}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C76DAD4-6A77-4005-8B7B-4769F82FB307}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C76DAD4-6A77-4005-8B7B-4769F82FB307}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C76DAD4-6A77-4005-8B7B-4769F82FB307}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FAF55E97-B92A-4A25-B300-135AC3C8E387}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FAF55E97-B92A-4A25-B300-135AC3C8E387}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FAF55E97-B92A-4A25-B300-135AC3C8E387}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FAF55E97-B92A-4A25-B300-135AC3C8E387}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

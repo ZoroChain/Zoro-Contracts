@@ -20,9 +20,9 @@ namespace BcpContract
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
-
         private const ulong factor = 100000000;//精度
-        private const ulong totalCoin = 20 * 100000000 * factor;//总量
+        private const ulong oneHundredMillion = 100000000; //一亿
+        private const ulong totalCoin = 20 * oneHundredMillion * factor;//总量
 
         public static object Main(string method, object[] args)
         {
@@ -59,7 +59,6 @@ namespace BcpContract
                 {
                     byte[] who = (byte[])args[0];
                     if (who.Length != 20) return false;
-
                     return balanceOf(who);
                 }
 
@@ -70,6 +69,7 @@ namespace BcpContract
                     return getTxInfo(txid);
                 }
 
+                // 如果合约不是 Active 状态、后面接口不可用
                 if (GetState() != Active) return false;
 
                 if (method == "deploy")
@@ -164,35 +164,24 @@ namespace BcpContract
 
         private static StorageContext Context() => Storage.CurrentContext;
 
-        private static byte[] GetState()
-        {
-            return Storage.Get(Context(), "state");
-        }
+        private static byte[] GetState() => Storage.Get(Context(), "state");
 
-        private static object TotalSupply()
-        {
-            return Storage.Get(Context(), "totalSupply").AsBigInteger();
-        }
+        private static object TotalSupply() => Storage.Get(Context(), "totalSupply").AsBigInteger();
 
         private static bool Transfer(byte[] from, byte[] to, BigInteger value)
         {
-            if (value <= 0)
-                return false;
-            if (from == to)
-                return true;
+            if (value <= 0) return false;
+            if (from == to) return true;
 
-            var keyFrom = new byte[] { 0x11 }.Concat(from);
+            var keyFrom = AddressKey(from);
             BigInteger from_value = Storage.Get(Context(), keyFrom).AsBigInteger();
-            if (from_value < value)
-                return false;
+            if (from_value < value) return false;
             if (from_value == value)
                 Storage.Delete(Context(), keyFrom);
             else
-            {
                 Storage.Put(Context(), keyFrom, from_value - value);
-            }
 
-            var keyTo = new byte[] { 0x11 }.Concat(to);
+            var keyTo = AddressKey(to);
             BigInteger to_value = Storage.Get(Context(), keyTo).AsBigInteger();
             Storage.Put(Context(), keyTo, to_value + value);
 
@@ -209,7 +198,7 @@ namespace BcpContract
             info.value = value;
             byte[] txInfo = Helper.Serialize(info);
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-            var keyTxid = new byte[] { 0x13 }.Concat(txid);
+            byte[] keyTxid = TxidKey(txid);
             Storage.Put(Context(), keyTxid, txInfo);
         }
 

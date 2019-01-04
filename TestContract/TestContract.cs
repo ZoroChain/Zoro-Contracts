@@ -1,6 +1,7 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
+using System;
 using System.Numerics;
 using Helper = Neo.SmartContract.Framework.Helper;
 
@@ -11,9 +12,18 @@ namespace TestContract
         public static object Main(string method, object[] args)
         {
             var magicstr = "Test_Contract_v0.32";
+
             if (Runtime.Trigger == TriggerType.Verification)
             {
-                return false;
+                if (Blockchain.GetHeight() > 800)
+                    return true;
+                else
+                    return false;
+            }
+            if (Runtime.Trigger == TriggerType.Application)
+            {
+                if (method == "FunctionA")
+                    return FunctionA(args);
             }
 
             if (Runtime.Trigger == TriggerType.VerificationR)
@@ -146,5 +156,9 @@ namespace TestContract
             return false;
         }
 
+        private static object FunctionA(object[] args)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
