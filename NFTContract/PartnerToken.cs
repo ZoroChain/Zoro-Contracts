@@ -51,7 +51,7 @@ namespace NFT_Token
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
                 //管理员权限     设置合约状态          
-                if (method == "setstate")
+                if (method == "setState")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
                     BigInteger setValue = (BigInteger)args[0];
@@ -65,7 +65,7 @@ namespace NFT_Token
                 }
 
                 //invoke
-                if (method == "getstate") return GetState();
+                if (method == "getState") return GetState();
 
                 // stop 表示合约全部接口已停用
                 if (GetState() == AllStop) return false;
@@ -147,27 +147,6 @@ namespace NFT_Token
                     return true;
                 }
 
-                //第一本证书创世发行
-                if (method == "deploy")
-                {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    var address = (byte[])args[0];
-                    if (address.Length != 20) return false;
-
-                    return DeployFirstNft(address);
-                }
-
-                //转手交易
-                if (method == "exchange")
-                {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    byte[] from = (byte[])args[0];
-                    byte[] to = (byte[])args[1];
-                    if (from.Length != 20 || to.Length != 20) return false;
-
-                    return ExchangeNft(from, to);
-                }
-
                 Config config = GetConfig();
                 if (config.SilverPrice == 0 || config.GatheringAddress.Length == 0) throw new Exception("Not set config");
 
@@ -190,18 +169,34 @@ namespace NFT_Token
                     return UpgradeNft(config, txid);
                 }
 
+                if (!Runtime.CheckWitness(superAdmin)) return false;
+
+                //第一本证书创世发行
+                if (method == "deploy")
+                {
+                    var address = (byte[])args[0];
+                    if (address.Length != 20) return false;
+                    return DeployFirstNft(address);
+                }
+
+                //转手交易
+                if (method == "exchange")
+                {
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    if (from.Length != 20 || to.Length != 20) return false;
+                    return ExchangeNft(from, to);
+                }
+
                 //邀请普通会员加分
                 if (method == "addpoint")
                 {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-
                     byte[] address = (byte[])args[0];
                     if (address.Length != 20) return false;
 
                     var tokenId = GetTokenIdByAddress(address);
 
                     AddPoint(tokenId, config.LeaguerInvitePoint);
-
                     return true;
                 }
 

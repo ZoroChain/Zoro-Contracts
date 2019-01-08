@@ -21,9 +21,8 @@ namespace BCTContract
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
-        private const ulong factor = 10000;//精度
-        private const ulong oneHundredMillion = 100000000; //一亿
-        private const ulong totalCoin = 9000 * oneHundredMillion * factor;//总量
+        private const ulong factor = 100000000;//精度
+        private const long totalCoin = -1;//总量 没有总量
 
         public static object Main(string method, object[] args)
         {
@@ -33,7 +32,7 @@ namespace BCTContract
                 var callscript = ExecutionEngine.CallingScriptHash;
 
                 //管理员权限     设置合约状态          
-                if (method == "setstate")
+                if (method == "setState")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
                     BigInteger setValue = (BigInteger)args[0];
@@ -47,7 +46,7 @@ namespace BCTContract
                 }
 
                 //invoke
-                if (method == "getstate") return GetState();
+                if (method == "getState") return GetState();
 
                 // stop 表示合约全部接口已停用
                 if (GetState() == AllStop) return false;
@@ -76,15 +75,26 @@ namespace BCTContract
                 if (method == "deploy")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
-                    byte[] total_supply = Storage.Get(Context(), "totalSupply");
-                    if (total_supply.Length != 0) return false;
+                    if (args.Length != 2) return false;
+
+                    byte[] address = (byte[])args[0];
+                    BigInteger amount = (BigInteger)args[1];
+
+                    if (address.Length != 20) return false;
+                    if (amount <= 0) return false;
 
                     var keySuperAdmin = AddressKey(superAdmin);
-                    Storage.Put(Context(), keySuperAdmin, totalCoin);
-                    Storage.Put(Context(), "totalSupply", totalCoin);
+
+                    BigInteger superAdminBalance = Storage.Get(Context(), keySuperAdmin).AsBigInteger();
+
+                    Storage.Put(Context(), keySuperAdmin, superAdminBalance + amount);
+
+                    BigInteger total_supply = Storage.Get(Context(), "totalSupply").AsBigInteger();
+
+                    Storage.Put(Context(), "totalSupply", total_supply + amount);
 
                     //notify
-                    Transferred(null, superAdmin, totalCoin);
+                    Transferred(null, superAdmin, amount);
                 }
 
                 if (method == "transfer")
@@ -161,7 +171,7 @@ namespace BCTContract
 
         public static string Symbol() => "BCT";//简称
 
-        public static byte Decimals() => 4;//精度
+        public static byte Decimals() => 8;//精度
 
         private static StorageContext Context() => Storage.CurrentContext;
 

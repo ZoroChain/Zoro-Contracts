@@ -32,7 +32,7 @@ namespace BcpContract
                 var callscript = ExecutionEngine.CallingScriptHash;
 
                 //管理员权限     设置合约状态          
-                if (method == "setstate")
+                if (method == "setState")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
                     BigInteger setValue = (BigInteger)args[0];
@@ -46,7 +46,7 @@ namespace BcpContract
                 }
 
                 //invoke
-                if (method == "getstate") return GetState();
+                if (method == "getState") return GetState();
 
                 // stop 表示合约全部接口已停用
                 if (GetState() == AllStop) return false;
