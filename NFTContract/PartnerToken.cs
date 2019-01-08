@@ -29,6 +29,9 @@ namespace NFT_Token
         [DisplayName("addpoint")]
         public static event Action<byte[], byte[], BigInteger> AddPointed; //(tokenID, address, point)
 
+        [DisplayName("bind")]
+        public static event Action<byte[], byte[]> Bound; //(address, tokenId)
+
         private static readonly byte[] Active = { };          // 所有接口可用
         private static readonly byte[] Inactive = { 0x01 };   //只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
@@ -69,10 +72,6 @@ namespace NFT_Token
 
                 // stop 表示合约全部接口已停用
                 if (GetState() == AllStop) return false;
-
-                if (method == "name") return Name();
-
-                if (method == "symbol") return Symbol();
 
                 if (method == "getnftinfo")
                 {
@@ -160,6 +159,12 @@ namespace NFT_Token
                     return BuyNewNft(config, txid, inviterAddr);
                 }
 
+                if (method == "bind")
+                {
+                    if (args.Length != 2) return false;
+                    return BindNft((byte[])args[0], (byte[])args[1]);
+                }
+
                 //升级
                 if (method == "upgrade")
                 {
@@ -182,10 +187,8 @@ namespace NFT_Token
                 //转手交易
                 if (method == "exchange")
                 {
-                    byte[] from = (byte[])args[0];
-                    byte[] to = (byte[])args[1];
-                    if (from.Length != 20 || to.Length != 20) return false;
-                    return ExchangeNft(from, to);
+                    if (args.Length != 3) return false;
+                    return ExchangeNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
                 }
 
                 //邀请普通会员加分
@@ -241,27 +244,38 @@ namespace NFT_Token
             return false;
         }
 
-        public static string Name() => "BlaCat Partner Certificate Token";//Blacat 合伙人证书 NFT
+        private static bool BindNft(byte[] address, byte[] tokenId)
+        {
+            if (!Runtime.CheckWitness(address)) return false;
 
-        public static string Symbol() => "BPT";//简称
+            if (tokenId.Length != 32) return false;
+
+            NFTInfo nftInfo = GetNftByTokenId(tokenId);
+
+            var userTokenId = GetTokenIdByAddress(address);
+
+            if (userTokenId == nftInfo.TokenId) return false;
+
+            if (nftInfo.TokenId.Length != 32) return false;
+            if (nftInfo.Owner != address) return false;
+
+            var key = UserNftKey(address);
+            Storage.Put(Context(), key, nftInfo.TokenId);
+
+            Bound(address, tokenId);
+
+            return true;   
+        }
 
         private static byte[] GetState() => Storage.Get(Context(), "state");
-
-        private static StorageContext Context() => Storage.CurrentContext;
 
         private static bool DeployFirstNft(byte[] address)
         {
             //判断初始发行是否已完成
             if (IsInitted()) return false;
 
-            //判断address是否已拥有证书
-            if (IsHaveNft(address)) return false;
-
             //构建一个证书
             var newNftInfo = CreateNft(address, null);
-
-            //保存address-tokenid对应关系
-            SaveAddressMap(address, newNftInfo.TokenId);
 
             //保存nft信息
             SaveNftInfo(newNftInfo);
@@ -289,10 +303,11 @@ namespace NFT_Token
             if (tx.@from.Length == 0 || tx.to.AsBigInteger() != config.GatheringAddress.AsBigInteger() || tx.value < config.SilverPrice)
                 return false;
 
-            //购买者已拥有或者邀请者未拥有证书、均false
-            if (IsHaveNft(tx.from) || !IsHaveNft(inviterAddr)) return false;
-
             var inviterTokenId = GetTokenIdByAddress(inviterAddr);
+
+            //邀请者未拥有证书、false
+            if (inviterTokenId.Length == 0) return false;
+
             var nftInfo = CreateNft(tx.from, inviterTokenId);
 
             SaveAddressMap(tx.from, nftInfo.TokenId);
@@ -318,11 +333,12 @@ namespace NFT_Token
         {
             var tx = GetBctTxInfo(txid);
 
-            if (tx.@from.Length == 0 || tx.to.AsBigInteger() != config.GatheringAddress.AsBigInteger() || tx.value <= 0)
+            if (tx.@from.Length != 20 || tx.to.AsBigInteger() != config.GatheringAddress.AsBigInteger() || tx.value <= 0)
                 return false;
-            if (!IsHaveNft(tx.from)) return false;
 
             var tokenId = GetTokenIdByAddress(tx.from);
+            if (tokenId.Length != 32) return false;
+
             var nftInfo = GetNftByTokenId(tokenId);
 
             if (CanUpgrade(config, nftInfo, tx))
@@ -349,27 +365,29 @@ namespace NFT_Token
             return false;
         }
 
-        private static bool ExchangeNft(byte[] from, byte[] to)
+        private static bool ExchangeNft(byte[] from, byte[] to, byte[] tokenId)
         {
-            //to 已拥有证书, from 没有证书、false
-            if (IsHaveNft(to) || !IsHaveNft(from)) return false;
+            if (!Runtime.CheckWitness(from)) return false;
+            if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
 
             var fromTokenId = GetTokenIdByAddress(from);
-            var fromNftInfo = GetNftByTokenId(fromTokenId);
+            //from 没有证书、false
+            var fromNftInfo = GetNftByTokenId(tokenId);
+
+            if (fromNftInfo.Owner != from) return false;
 
             //更换所有者
             fromNftInfo.Owner = to;
 
-            //删除from的证书
-            DeleteAddressMap(from);
-
-            SaveAddressMap(to, fromTokenId);
-
             SaveNftInfo(fromNftInfo);
 
-            SaveTxInfo(from, to, fromTokenId);
+            //如果把绑定卖了、就删除
+            if (fromTokenId == tokenId)
+                DeleteAddressMap(from);
+
+            SaveTxInfo(from, to, tokenId);
             //notify
-            Exchanged(from, to, fromTokenId);
+            Exchanged(from, to, tokenId);
 
             return true;
         }
@@ -385,25 +403,6 @@ namespace NFT_Token
             AddPointed(tokenId, nftInfo.Owner, pointValue);
         }
 
-        private static void DeleteAddressMap(byte[] address)
-        {
-            StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
-            addressMap.Delete(address);
-        }
-
-        private static bool IsHaveNft(byte[] address)
-        {
-            var tokenId = GetTokenIdByAddress(address);
-            if (tokenId.Length > 0) return true;
-            else return false;
-        }
-
-        private static void SaveAddressMap(byte[] address, byte[] tokenId)
-        {
-            StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
-            addressMap.Put(address, tokenId);
-        }
-
         private static bool IsInitted()
         {
             byte[] deploy_data = Storage.Get(Context(), "initDeploy");
@@ -411,10 +410,22 @@ namespace NFT_Token
             else return false;
         }
 
+        private static void SaveAddressMap(byte[] address, byte[] tokenId)
+        {
+            var key = UserNftKey(address);
+            Storage.Put(Context(), key, tokenId);
+        }
+
+        private static void DeleteAddressMap(byte[] address)
+        {
+            var key = UserNftKey(address);
+            Storage.Delete(Context(), key);
+        }
+
         private static byte[] GetTokenIdByAddress(byte[] address)
         {
-            StorageMap addressMap = Storage.CurrentContext.CreateMap("addressMap");
-            return addressMap.Get(address);
+            var key = UserNftKey(address);
+            return Storage.Get(Context(), key);
         }
 
         public static bool CanUpgrade(Config config, NFTInfo nftInfo, TransferInfo tx)
@@ -482,9 +493,9 @@ namespace NFT_Token
 
         public static void SaveNftInfo(NFTInfo nftInfo)
         {
-            StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
+            var key = NftInfoKey(nftInfo.TokenId);
             byte[] nftInfoBytes = Helper.Serialize(nftInfo);
-            userNftInfoMap.Put(nftInfo.TokenId, nftInfoBytes);
+            Storage.Put(Context(), key, nftInfoBytes);
         }
 
         public static void SaveTxInfo(byte[] from, byte[] to, byte[] tokenId)
@@ -495,8 +506,8 @@ namespace NFT_Token
             info.tokenId = tokenId;
             byte[] exInfo = Helper.Serialize(info);
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-            StorageMap ExchangeInfoMap = Storage.CurrentContext.CreateMap("txInfoMap");
-            ExchangeInfoMap.Put(txid, exInfo);
+            var key = TxInfoKey(txid);
+            Storage.Put(Context(), key, exInfo);
         }
 
         public static Config GetConfig()
@@ -517,17 +528,17 @@ namespace NFT_Token
 
         public static NFTInfo GetNftByTokenId(byte[] tokenId)
         {
-            StorageMap userNftInfoMap = Storage.CurrentContext.CreateMap("userNftInfoMap");
-            byte[] data = userNftInfoMap.Get(tokenId);
+            var key = NftInfoKey(tokenId);
+            byte[] data = Storage.Get(Context(), key);
             if (data.Length == 0)
-                new NFTInfo();
+                return new NFTInfo();
             return data.Deserialize() as NFTInfo;
         }
 
         public static ExchangeInfo GetTxInfoByTxid(byte[] txid)
         {
-            StorageMap ExchangeInfoMap = Storage.CurrentContext.CreateMap("txInfoMap");
-            var data = ExchangeInfoMap.Get(txid);
+            var key = TxInfoKey(txid);
+            var data = Storage.Get(Context(), key);
             if (data.Length == 0)
                 return null;
             return data.Deserialize() as ExchangeInfo;
@@ -535,9 +546,9 @@ namespace NFT_Token
 
         public static TransferInfo GetBctTxInfo(byte[] txid)
         {
-            StorageMap txInfoMap = Storage.CurrentContext.CreateMap("bctTxInfoMap");
+            var key = BctTxidUsedKey(txid);
             var tInfo = new TransferInfo();
-            var v = txInfoMap.Get(txid).AsBigInteger();
+            var v = Storage.Get(Context(), key).AsBigInteger();
             if (v == 0)
             {
                 object[] _p = new object[1] { txid };
@@ -550,9 +561,16 @@ namespace NFT_Token
 
         public static void SetTxUsed(byte[] txid)
         {
-            StorageMap txInfoMap = Storage.CurrentContext.CreateMap("bctTxInfoMap");
-            txInfoMap.Put(txid, 1);
+            var key = BctTxidUsedKey(txid);
+            Storage.Put(Context(), key, 1);
         }
+
+        private static StorageContext Context() => Storage.CurrentContext;
+
+        private static byte[] UserNftKey(byte[] address) => "userNft".AsByteArray().Concat(address);
+        private static byte[] NftInfoKey(byte[] tokenId) => "nftInfo".AsByteArray().Concat(tokenId);
+        private static byte[] TxInfoKey(byte[] txid) => "txInfo".AsByteArray().Concat(txid);
+        private static byte[] BctTxidUsedKey(byte[] txid) => "bctTxidUsed".AsByteArray().Concat(txid);
 
     }
 
