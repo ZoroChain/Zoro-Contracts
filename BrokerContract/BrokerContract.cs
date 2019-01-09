@@ -22,7 +22,7 @@ namespace BrokerContract
         public static event Action<byte[], byte[], BigInteger, byte[], BigInteger, byte[]> EmitFillFailed; // (address, offerHash, fillAmount, takerFeeAsssetID, takerFee, reason)
 
         [DisplayName("withdrawnFailed")]
-        public static event Action<byte[], byte[], BigInteger, byte[], BigInteger, byte[]> EmitWithdrawnFailed; // (address, withdrawAssetID, withdrawAmount, feeAssetId, takerFee, reason)
+        public static event Action<byte[], byte[], BigInteger, byte[]> EmitWithdrawnFailed; // (address, withdrawAssetID, withdrawAmount, feeAssetId, takerFee, reason)
 
         [DisplayName("cancelled")]
         public static event Action<byte[], byte[]> EmitCancelled; // (address, offerHash)
@@ -129,7 +129,6 @@ namespace BrokerContract
 
         /// <summary>
         ///   This is the Switcheo smart contract entrypoint.
-        ///
         ///   Parameter List: 0710
         ///   Return List: 05
         /// </summary>
@@ -155,6 +154,7 @@ namespace BrokerContract
                 if (operation == "getBalance") return GetBalance((byte[])args[0], (byte[])args[1]); //address, assetID
                 if (operation == "getIsWhitelisted") return GetIsWhitelisted((byte[])args[0]);  // (assetID)
                 if (operation == "getFeeAddress") return GetFeeAddress(); //收交易费账户
+                if (operation == "getDealerAddress") return GetDealerAddress();
 
                 if (GetState() != Active) return false;
 
@@ -184,10 +184,10 @@ namespace BrokerContract
                     return CancelOffer((byte[])args[0]);
                 }
                 //取钱
-                if (operation == "withdraw") // originator, withdrawAssetId, withdrawAmount, feeAssetId, feeAmount
+                if (operation == "withdraw") // originator, withdrawAssetId, withdrawAmount
                 {
                     if (args.Length != 5) return false;
-                    return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (byte[])args[3], (BigInteger)args[4]);
+                    return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
                 }
 
                 // == Owner ==
@@ -340,12 +340,16 @@ namespace BrokerContract
 
         private static bool MakeOffer(Offer offer)
         {
+            if (!Runtime.CheckWitness(GetDealerAddress())) return false;
+
             // Check that transaction is signed by the maker and coordinator
             if (!Runtime.CheckWitness(offer.MakerAddress)) return false;
 
             // Check that nonce is not repeated
             var offerHash = (ExecutionEngine.ScriptContainer as Transaction).Hash;
             if (Storage.Get(Context(), OfferKey(offerHash)) != Empty) return false;
+
+            if (!GetIsWhitelisted(offer.OfferAssetID) || !GetIsWhitelisted(offer.WantAssetID)) return false;
 
             // Check that the amounts > 0
             if (!(offer.OfferAmount > 0 && offer.WantAmount > 0 && offer.FeeAmount > 0)) return false;
@@ -394,7 +398,6 @@ namespace BrokerContract
         // amountToTake's asset type = offerAssetID (taker is taking what is offered)
         private static bool FillOffer(byte[] fillerAddress, byte[] offerHash, BigInteger fillAmount, byte[] takerFeeAssetID, BigInteger takerFeeAmount)
         {
-            // Note: We do all checks first then execute state changes
             if (!Runtime.CheckWitness(GetDealerAddress())) return false;
             // Check fees
             if (takerFeeAssetID.Length != 20) return false;
@@ -631,7 +634,7 @@ namespace BrokerContract
         /***********
          * Withdrawal *
          ***********/
-        private static bool Withdrawal(byte[] originator, byte[] withdrawaAssetId, BigInteger withdrawaAmount, byte[] feeAssetId, BigInteger feeAmount)
+        private static bool Withdrawal(byte[] originator, byte[] withdrawaAssetId, BigInteger withdrawaAmount)
         {
             if (!Runtime.CheckWitness(originator)) return false;
 
@@ -641,37 +644,14 @@ namespace BrokerContract
 
             if (originatorBalance < withdrawaAmount)
             {
-                EmitWithdrawnFailed(originator, withdrawaAssetId, withdrawaAmount, feeAssetId, feeAmount, ReasonNotEnoughBalanceToken);
+                EmitWithdrawnFailed(originator, withdrawaAssetId, withdrawaAmount, ReasonNotEnoughBalanceToken);
                 return false;
             }
 
             byte[] feeAddress = Storage.Get(Context(), "feeAddress");
 
-            // 如果 takerFeeAssetID != offer.OfferAssetID，交易费需要单独扣
-            bool deductFeesSeparately = feeAssetId != withdrawaAssetId;
-
-            if (deductFeesSeparately)
-            {
-                var feeBalance = GetBalance(originator, feeAssetId);
-                if (feeBalance < feeAmount)
-                {
-                    EmitWithdrawnFailed(originator, withdrawaAssetId, withdrawaAmount, feeAssetId, feeAmount, ReasonNotEnoughFee);
-                    return false;
-                }
-            }
-            else
-            {
-                withdrawaAmount -= feeAmount;
-            }
-
             //reduce withdrawaAmount
             ReduceBalance(originator, withdrawaAssetId, withdrawaAmount, ReasonWithdraw);
-
-            //redice fee
-            ReduceBalance(originator, feeAssetId, feeAmount, ReasonWithdrawFee);
-
-            //add fee
-            IncreaseBalance(feeAddress, feeAssetId, feeAmount, ReasonWithdrawFeeReceive);
 
             //transfer
             if (TransferAppNEP5(ExecutionEngine.ExecutingScriptHash, originator, withdrawaAssetId, withdrawaAmount))
