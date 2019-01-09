@@ -2,38 +2,34 @@
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using System;
+using System.ComponentModel;
 using System.Numerics;
-using Helper = Neo.SmartContract.Framework.Helper;
 
 namespace TestContract
 {
     public class TestContract : SmartContract
     {
+        [DisplayName("notify")]
+        public static event Action<byte[], BigInteger> Notify; 
         public static object Main(string method, object[] args)
         {
             var magicstr = "Test_Contract_v0.32";
 
-            if (Runtime.Trigger == TriggerType.Verification)
-            {
-                if (Blockchain.GetHeight() > 800)
-                    return true;
-                else
-                    return false;
-            }
-            if (Runtime.Trigger == TriggerType.Application)
-            {
-                if (method == "FunctionA")
-                    return FunctionA(args);
-            }
-
-            if (Runtime.Trigger == TriggerType.VerificationR)
-            {
-                return true;
-            }
-
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
+
+                if (method == "witnessTest")
+                {
+                    Notify(new byte[] { }, 0);
+
+                    if (!Runtime.CheckWitness((byte[])args[0])) return false;
+                    Notify((byte[])args[0], 1);
+
+                    if (!Runtime.CheckWitness((byte[])args[1])) return false;
+                    Notify((byte[])args[1], 2);
+                }
+
                 if (method == "test")
                     return 1;
                 if (method == "call")
@@ -123,42 +119,10 @@ namespace TestContract
                     return NativeAsset.GetTransferState(asset_id, txid);
                 }
 
-                if (method == "gettxstate1")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    byte[] txid = (byte[])args[1];
-                    return NativeAsset.GetTransferState(asset_id, txid).Serialize();
-                }
-
-                if (method == "gettxstate2")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    byte[] txid = (byte[])args[1];
-                    return NativeAsset.GetTransferState(asset_id, txid) as TransferState;
-                }
-
-                if (method == "gettxstate3")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    byte[] txid = (byte[])args[1];
-                    return ExecutionEngine.ScriptContainer as TransferState;
-                }
-
-                if (method == "gettxstate4")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    byte[] txid = (byte[])args[1];
-                    return ExecutionEngine.ScriptContainer;
-                }
-
             }
 
             return false;
         }
 
-        private static object FunctionA(object[] args)
-        {
-            throw new NotImplementedException();
-        }
     }
 }

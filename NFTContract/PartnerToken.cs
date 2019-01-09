@@ -73,36 +73,36 @@ namespace NFT_Token
                 // stop 表示合约全部接口已停用
                 if (GetState() == AllStop) return false;
 
-                if (method == "getnftinfo")
+                if (method == "getNftInfo")
                 {
                     var tokenId = GetTokenIdByAddress((byte[])args[0]);
                     if (tokenId.Length != 32) return null;
                     return GetNftByTokenId(tokenId);
                 }
 
-                if (method == "getnftinfobyid")
+                if (method == "getNftInfoById")
                 {
                     byte[] tokenId = (byte[])args[0];
                     if (tokenId.Length != 32) return null;
                     return GetNftByTokenId(tokenId);
                 }
 
-                if (method == "gettxinfo")
+                if (method == "getTxinfo")
                 {
                     byte[] txid = (byte[])args[0];
                     if (txid.Length != 32) return null;
                     return GetTxInfoByTxid(txid);
                 }
 
-                if (method == "getcount") return GetNftCount();
+                if (method == "getCount") return GetNftCount();
 
                 // 以下接口只有 Active 时可用
                 if (GetState() != Active) return false;
 
-                if (method == "getconfig") return GetConfig();
+                if (method == "getConfig") return GetConfig();
 
                 //设置参数
-                if (method == "setconfig")
+                if (method == "setConfig")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
                     BigInteger silverPrice = (BigInteger)args[0];
@@ -159,48 +159,47 @@ namespace NFT_Token
                     return BuyNewNft(config, txid, inviterAddr);
                 }
 
+                //绑定、需要用户签名
                 if (method == "bind")
                 {
                     if (args.Length != 2) return false;
                     return BindNft((byte[])args[0], (byte[])args[1]);
                 }
 
-                //升级
-                if (method == "upgrade")
-                {
-                    byte[] txid = (byte[])args[0];
-                    if (txid.Length != 32) return false;
-
-                    return UpgradeNft(config, txid);
-                }
-
-                if (!Runtime.CheckWitness(superAdmin)) return false;
-
-                //第一本证书创世发行
-                if (method == "deploy")
-                {
-                    var address = (byte[])args[0];
-                    if (address.Length != 20) return false;
-                    return DeployFirstNft(address);
-                }
-
-                //转手交易
+                //转手交易、需要用户签名
                 if (method == "exchange")
                 {
                     if (args.Length != 3) return false;
                     return ExchangeNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
                 }
 
-                //邀请普通会员加分
-                if (method == "addpoint")
+                //升级
+                if (method == "upgrade") //(txid, tokenId)
                 {
-                    byte[] address = (byte[])args[0];
-                    if (address.Length != 20) return false;
+                    if (args.Length != 2) return false;
+                    return UpgradeNft((byte[])args[0], (byte[])args[1], config);
+                }
 
-                    var tokenId = GetTokenIdByAddress(address);
+                if (!Runtime.CheckWitness(superAdmin)) return false;
 
-                    AddPoint(tokenId, config.LeaguerInvitePoint);
-                    return true;
+                //第一本证书创世发行
+                if (method == "deploy") //(address)
+                {
+                    if (args.Length != 1) return false;
+                    return DeployFirstNft((byte[])args[0]);
+                }
+
+                //邀请普通会员加分
+                if (method == "addPoint") //(tokenId)
+                {
+                    if (args.Length != 1) return false; 
+                    return AddPoint((byte[])args[0], config.LeaguerInvitePoint);
+                }
+
+                if (method == "reducePoint") //(tokenId, pointValue)
+                {
+                    if (args.Length != 2) return false;
+                    return ReducePoint((byte[])args[0], (BigInteger)args[1]);
                 }
 
                 #region 升级合约,耗费490,仅限管理员
@@ -271,6 +270,8 @@ namespace NFT_Token
 
         private static bool DeployFirstNft(byte[] address)
         {
+            if (address.Length != 20) return false;
+
             //判断初始发行是否已完成
             if (IsInitted()) return false;
 
@@ -329,17 +330,18 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool UpgradeNft(Config config, byte[] txid)
+        private static bool UpgradeNft(byte[] txid, byte[] tokenId, Config config)
         {
+            if (txid.Length != 32 || tokenId.Length != 32) return false;
+
             var tx = GetBctTxInfo(txid);
 
             if (tx.@from.Length != 20 || tx.to.AsBigInteger() != config.GatheringAddress.AsBigInteger() || tx.value <= 0)
                 return false;
 
-            var tokenId = GetTokenIdByAddress(tx.from);
-            if (tokenId.Length != 32) return false;
-
             var nftInfo = GetNftByTokenId(tokenId);
+
+            if (nftInfo.Owner != tx.from) return false;
 
             if (CanUpgrade(config, nftInfo, tx))
             {
@@ -381,7 +383,7 @@ namespace NFT_Token
 
             SaveNftInfo(fromNftInfo);
 
-            //如果把绑定卖了、就删除
+            //如果把绑定的卖了、就删除
             if (fromTokenId == tokenId)
                 DeleteAddressMap(from);
 
@@ -392,8 +394,11 @@ namespace NFT_Token
             return true;
         }
 
-        private static void AddPoint(byte[] tokenId, BigInteger pointValue)
+        private static bool AddPoint(byte[] tokenId, BigInteger pointValue)
         {
+            if (tokenId.Length != 20) return false;
+            if (pointValue <= 0) return false;
+
             var nftInfo = GetNftByTokenId(tokenId);
 
             nftInfo.ContributionPoint += pointValue;
@@ -401,6 +406,8 @@ namespace NFT_Token
             SaveNftInfo(nftInfo);
             //notify
             AddPointed(tokenId, nftInfo.Owner, pointValue);
+
+            return true;
         }
 
         private static bool IsInitted()
