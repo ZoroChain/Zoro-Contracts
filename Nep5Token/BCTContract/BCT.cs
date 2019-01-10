@@ -21,8 +21,7 @@ namespace BCTContract
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
-        private const ulong factor = 100000000;//精度
-        private const long totalCoin = -1;//总量 没有总量
+        private const long totalCoin = 0;//总量 没有总量
 
         public static object Main(string method, object[] args)
         {
@@ -75,26 +74,26 @@ namespace BCTContract
                 if (method == "deploy")
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
-                    if (args.Length != 2) return false;
 
+                    if (args.Length != 2) return false;
                     byte[] address = (byte[])args[0];
                     BigInteger amount = (BigInteger)args[1];
 
                     if (address.Length != 20) return false;
                     if (amount <= 0) return false;
 
-                    var keySuperAdmin = AddressKey(superAdmin);
+                    var key = AddressKey(address);
 
-                    BigInteger superAdminBalance = Storage.Get(Context(), keySuperAdmin).AsBigInteger();
-
-                    Storage.Put(Context(), keySuperAdmin, superAdminBalance + amount);
+                    BigInteger addressBalance = Storage.Get(Context(), key).AsBigInteger();
+                    //往指定地址发行一笔
+                    Storage.Put(Context(), key, addressBalance + amount);
 
                     BigInteger total_supply = Storage.Get(Context(), "totalSupply").AsBigInteger();
 
                     Storage.Put(Context(), "totalSupply", total_supply + amount);
 
                     //notify
-                    Transferred(null, superAdmin, amount);
+                    Transferred(null, address, amount);
                 }
 
                 if (method == "transfer")

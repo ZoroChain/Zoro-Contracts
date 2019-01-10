@@ -243,6 +243,20 @@ namespace NFT_Token
             return false;
         }
 
+        private static bool ReducePoint(byte[] tokenId, BigInteger pointValue)
+        {
+            if (!Runtime.CheckWitness(superAdmin)) return false;
+            if (tokenId.Length != 32) return false;
+
+            NFTInfo nftInfo = GetNftByTokenId(tokenId);
+            nftInfo.AvailablePoint -= pointValue;
+            SaveNftInfo(nftInfo);
+
+            //notify
+            AddPointed(tokenId, nftInfo.Owner, 0 - pointValue);
+            return false;
+        }
+
         private static bool BindNft(byte[] address, byte[] tokenId)
         {
             if (!Runtime.CheckWitness(address)) return false;
@@ -343,27 +357,30 @@ namespace NFT_Token
 
             if (nftInfo.Owner != tx.from) return false;
 
-            if (CanUpgrade(config, nftInfo, tx))
+            var reducePoint = UpgradeReducePoint(config, nftInfo, tx);
+
+            if (reducePoint == 0) return false;
+            //升级
+            nftInfo.Rank += 1;
+            //扣分
+            nftInfo.AvailablePoint -= reducePoint;
+
+            SaveNftInfo(nftInfo);
+
+            //各等级数量变化
+            AddNftCount(nftInfo.Rank);
+
+            //升级给邀请者加分  获取要加的分数
+            BigInteger addPoint = GetAddPoint(config, nftInfo.Rank);
+
+            if (AddPoint(nftInfo.InviterTokenId, addPoint))
             {
-                nftInfo.Rank += 1;
-
-                SaveNftInfo(nftInfo);
-
-                //各等级数量变化
-                AddNftCount(nftInfo.Rank);
-
-                //升级给邀请者加分  获取要加的分数
-                BigInteger addPoint = GetAddPoint(config, nftInfo.Rank);
-
-                AddPoint(nftInfo.InviterTokenId, addPoint);
-
                 SetTxUsed(txid);
-
                 //notify
                 Upgraded(tokenId, tx.@from, nftInfo.Rank - 1, nftInfo.Rank);
-
                 return true;
             }
+
             return false;
         }
 
@@ -401,7 +418,8 @@ namespace NFT_Token
 
             var nftInfo = GetNftByTokenId(tokenId);
 
-            nftInfo.ContributionPoint += pointValue;
+            nftInfo.AllPoint += pointValue;
+            nftInfo.AvailablePoint += pointValue;
 
             SaveNftInfo(nftInfo);
             //notify
@@ -435,18 +453,18 @@ namespace NFT_Token
             return Storage.Get(Context(), key);
         }
 
-        public static bool CanUpgrade(Config config, NFTInfo nftInfo, TransferInfo tx)
+        public static BigInteger UpgradeReducePoint(Config config, NFTInfo nftInfo, TransferInfo tx)
         {
-            if (nftInfo.Rank == 1 && nftInfo.ContributionPoint >= config.GoldUpgradePoint &&
+            if (nftInfo.Rank == 1 && nftInfo.AvailablePoint >= config.GoldUpgradePoint &&
                 tx.value >= config.GoldPrice)
-                return true;
-            if (nftInfo.Rank == 2 && nftInfo.ContributionPoint >= config.PlatinumUpgradePoint &&
+                return config.GoldUpgradePoint;
+            if (nftInfo.Rank == 2 && nftInfo.AvailablePoint >= config.PlatinumUpgradePoint &&
                 tx.value >= config.PlatinumPrice)
-                return true;
-            if (nftInfo.Rank == 3 && nftInfo.ContributionPoint >= config.DiamondUpgradePoint &&
+                return config.PlatinumUpgradePoint;
+            if (nftInfo.Rank == 3 && nftInfo.AvailablePoint >= config.DiamondUpgradePoint &&
                 tx.value >= config.DiamondPrice)
-                return true;
-            return false;
+                return config.DiamondUpgradePoint;
+            return 0;
         }
 
         public static BigInteger GetAddPoint(Config config, BigInteger rank)
@@ -465,7 +483,8 @@ namespace NFT_Token
             var nftInfo = new NFTInfo();
             nftInfo.TokenId = Hash256((ExecutionEngine.ScriptContainer as Transaction).Hash);
             nftInfo.Owner = owner;
-            nftInfo.ContributionPoint = 0;
+            nftInfo.AllPoint = 0;
+            nftInfo.AvailablePoint = 0;
             nftInfo.Rank = 1;
             nftInfo.InviterTokenId = inviterTokenId;
             return nftInfo;
@@ -601,7 +620,8 @@ namespace NFT_Token
         public byte[] TokenId; //tokenid 证书ID
         public byte[] Owner; //所有者 address
         public BigInteger Rank; //等级
-        public BigInteger ContributionPoint; //贡献值
+        public BigInteger AllPoint; //累积贡献值
+        public BigInteger AvailablePoint; //可用贡献值
         public byte[] InviterTokenId; //邀请者证书ID
     }
 
