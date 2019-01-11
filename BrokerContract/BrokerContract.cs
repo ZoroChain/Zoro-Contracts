@@ -144,10 +144,18 @@ namespace BrokerContract
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
-                if (GetState() == AllStop) return false;
+                // 设置合约状态          
+                if (operation == "setState")
+                {
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    if (args.Length != 1) return false;
+                    return SetState((BigInteger)args[0]);
+                }
 
-                // == Getters ==
                 if (operation == "getState") return GetState();
+
+                if (GetState() == AllStop) return false;
+                // == Getters ==
                 if (operation == "getOffer") return GetOffer((byte[])args[0]); //offerHash
                 if (operation == "getBalance") return GetBalance((byte[])args[0], (byte[])args[1]); //address, assetID
                 if (operation == "getIsWhitelisted") return GetIsWhitelisted((byte[])args[0]);  // (assetID)
@@ -193,12 +201,6 @@ namespace BrokerContract
                 {
                     Runtime.Log("Owner signature verification failed");
                     return false;
-                }
-                // 设置合约状态          
-                if (operation == "setState")
-                {
-                    if (args.Length != 1) return false;
-                    return SetState((BigInteger)args[0]);
                 }
                 // == Init == 设置交易费收取地址,设置交易员
                 if (operation == "initialize")
