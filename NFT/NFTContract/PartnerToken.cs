@@ -352,7 +352,7 @@ namespace NFT_Token
             //增加数量
             AddNftCount(nftInfo.Rank);
 
-            GradedAddPoint(inviterTokenId, config.SilverInvitePoint);
+            GradedAddPoint(inviterTokenId, config.SilverInvitePoint, config);
 
             SaveTxInfo(null, tx.@from, nftInfo.TokenId);
 
@@ -363,7 +363,7 @@ namespace NFT_Token
             return true;
         }
 
-        private static void GradedAddPoint(byte[] tokenId, BigInteger Point)
+        private static void GradedAddPoint(byte[] tokenId, BigInteger Point, Config config)
         {
             var firstLevelNftInfo = GetNftByTokenId(tokenId);
             if (firstLevelNftInfo.Owner.Length == 20)
@@ -376,14 +376,14 @@ namespace NFT_Token
             if (twoLevelNftInfo.Owner.Length == 20)
             {
                 //给二级上线加分
-                AddPoint(twoLevelNftInfo, (Point * 20) / 100);
+                AddPoint(twoLevelNftInfo, (Point * config.TwoLevelPointPercent) / 100);
             }
 
             var threeLevelNftInfo = GetNftByTokenId(twoLevelNftInfo.InviterTokenId);
             if (threeLevelNftInfo.Owner.Length == 20)
             {
                 //给三级上线加分
-                AddPoint(threeLevelNftInfo, (Point * 5) / 100);
+                AddPoint(threeLevelNftInfo, (Point * config.ThreeLevelPointPercent) / 100);
             }
         }
 
@@ -418,7 +418,7 @@ namespace NFT_Token
             //升级给邀请者加分  获取要加的分数
             BigInteger addPoint = GetAddPoint(config, nftInfo.Rank);
 
-            GradedAddPoint(nftInfo.InviterTokenId, addPoint);
+            GradedAddPoint(nftInfo.InviterTokenId, addPoint, config);
 
             SetTxUsed(txid);
             //notify
