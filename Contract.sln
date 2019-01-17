@@ -43,6 +43,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Nep5Token", "Nep5Token", "{
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NFT", "NFT", "{1FE28ECB-948E-42B6-8C4C-97DBCE48F4F8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{08F4D7FF-3C55-41EA-88A5-811FB8FDCBB7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -117,6 +119,10 @@ Global
 		{FF501597-98D0-41EF-9F81-F7678AC38270}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FF501597-98D0-41EF-9F81-F7678AC38270}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FF501597-98D0-41EF-9F81-F7678AC38270}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08F4D7FF-3C55-41EA-88A5-811FB8FDCBB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08F4D7FF-3C55-41EA-88A5-811FB8FDCBB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08F4D7FF-3C55-41EA-88A5-811FB8FDCBB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08F4D7FF-3C55-41EA-88A5-811FB8FDCBB7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

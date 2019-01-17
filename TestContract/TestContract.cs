@@ -51,17 +51,10 @@ namespace TestContract
                     return Blockchain.GetHeader(height);
                 }
 
-                if (method == "name")
+                if (method == "strToByte")
                 {
-                    byte[] asset_id = (byte[])args[0];
-
-                    return NativeAsset.Call("Name", asset_id);
-                }
-
-                if (method == "decimals")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    return NativeAsset.Call("Decimals", asset_id);
+                    var result = "hello world".AsByteArray();
+                    return result;
                 }
 
                 if (method == "balanceOf")

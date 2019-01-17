@@ -164,7 +164,7 @@ namespace ZoroBCP
                         email = (string)args[7];
                         description = (string)args[8];
                     }
-                    Contract.Migrate(new_script, parameter_list, return_type, need_storage, name, version, author, email, description);
+                    Contract.Migrate(new_script, parameter_list, return_type, ContractPropertyState.HasStorage, name, version, author, email, description);
                     return true;
                 }
                 #endregion

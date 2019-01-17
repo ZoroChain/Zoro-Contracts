@@ -26,7 +26,7 @@ namespace BcpContract
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "bcp-test";
+            var magicstr = "bcp-test v1.0";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
