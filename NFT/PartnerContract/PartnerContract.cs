@@ -182,45 +182,7 @@ namespace NFT_Token
                     byte[] assetId = (byte[])args[0];
                     byte[] txid = (byte[])args[1];
                     byte[] inviterTokenId = (byte[])args[2];
-
-                    if (txid.Length != 32 || inviterTokenId.Length != 32) return false;
-
-                    byte[] key = new byte[] { 0x14 }.Concat(txid);
-
-                    byte[] v = Storage.Get(Storage.CurrentContext, key);
-
-                    if (v.Length != 0) return false;
-
-                    var inviterNftInfo = GetNftByTokenId(inviterTokenId);
-
-                    if (inviterNftInfo.Owner.Length != 20) return false;
-
-                    TransferLog tx = NativeAsset.GetTransferLog(assetId, txid);
-                    Config config = GetConfig();
-                    if (config.SilverPrice == 0) return false;
-
-                    byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
-
-                    //钱没给够或收款地址对不上均false
-                    if (tx.From.Length == 0 || tx.To != gatherAddress || (BigInteger)tx.Value < (BigInteger)config.SilverPrice)
-                        return false;
-
-                    NFTInfo nftInfo = CreateNft(tx.From, inviterTokenId);
-
-                    SaveNftInfo(nftInfo);
-
-                    //增加数量
-                    AddNftCount(nftInfo.Rank);
-
-                    GradedAddPoint(inviterNftInfo, config.SilverInvitePoint, config);
-
-                    SaveTxInfo(null, tx.From, nftInfo.TokenId);
-
-                    SetTxUsed(txid);
-
-                    //notify
-                    Exchanged(null, tx.From, nftInfo.TokenId);
-                    return true;
+                    return BuyNewNft(assetId, txid, inviterTokenId);
                 }
 
                 //升级
@@ -285,6 +247,48 @@ namespace NFT_Token
             }
 
             return false;
+        }
+
+        private static bool BuyNewNft(byte[] assetId, byte[] txid, byte[] inviterTokenId)
+        {
+            if (txid.Length != 32 || inviterTokenId.Length != 32) return false;
+
+            byte[] key = new byte[] { 0x14 }.Concat(txid);
+
+            byte[] v = Storage.Get(Storage.CurrentContext, key);
+
+            if (v.Length != 0) return false;
+
+            var inviterNftInfo = GetNftByTokenId(inviterTokenId);
+
+            if (inviterNftInfo.Owner.Length != 20) return false;
+
+            TransferLog tx = NativeAsset.GetTransferLog(assetId, txid);
+            Config config = GetConfig();
+            if (config.SilverPrice == 0) return false;
+
+            byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
+
+            //钱没给够或收款地址对不上均false
+            if (tx.From.Length == 0 || tx.To != gatherAddress || (BigInteger)tx.Value < (BigInteger)config.SilverPrice)
+                return false;
+
+            NFTInfo nftInfo = CreateNft(tx.From, inviterTokenId);
+
+            SaveNftInfo(nftInfo);
+
+            //增加数量
+            AddNftCount(nftInfo.Rank);
+
+            GradedAddPoint(inviterNftInfo, config.SilverInvitePoint, config);
+
+            SaveTxInfo(null, tx.From, nftInfo.TokenId);
+
+            SetTxUsed(txid);
+
+            //notify
+            Exchanged(null, tx.From, nftInfo.TokenId);
+            return true;
         }
 
         private static bool ReduceGrade(byte[] tokeId)
