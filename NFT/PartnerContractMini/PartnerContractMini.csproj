@@ -5,11 +5,11 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{86F99E76-CDD9-499A-B623-076BC9BF8283}</ProjectGuid>
+    <ProjectGuid>{5FAAFE49-83AF-4CFF-841C-438C29E5473F}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NFTContract</RootNamespace>
-    <AssemblyName>NFTContract</AssemblyName>
+    <RootNamespace>PartnerContractMini</RootNamespace>
+    <AssemblyName>PartnerContractMini</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -32,9 +32,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Neo.SmartContract.Framework, Version=2.7.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\Neo.SmartContract.Framework.dll</HintPath>
+    <Reference Include="Neo.SmartContract.Framework">
+      <HintPath>..\Neo.SmartContract.Framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -46,12 +45,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="NFTContract.cs" />
+    <Compile Include="PartnerContractMini.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="build.tasks" />
     <None Include="packages.config" />
+    <None Include="build.tasks" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Neo.ConvertTask.dll" />

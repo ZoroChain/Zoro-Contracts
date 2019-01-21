@@ -16,8 +16,6 @@ namespace NFT_Token
         //管理员
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
 
-        public delegate object NEP5Contract(string method, object[] args);
-
         [DisplayName("exchange")]
         public static event Action<byte[], byte[], byte[]> Exchanged;//(byte[] from, byte[] to, byte[] tokenId);
 
