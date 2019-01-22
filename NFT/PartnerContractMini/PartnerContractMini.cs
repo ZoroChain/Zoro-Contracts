@@ -48,7 +48,7 @@ namespace NFT_Token
         /// </param>
         public static object Main(string method, object[] args)
         {
-            var magicstr = "BlaCat Partner Certificate Token v1.5";
+            var magicstr = "BlaCat Partner Certificate Token v3.0";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
@@ -110,10 +110,10 @@ namespace NFT_Token
                 }
 
                 //购买
-                if (method == "buy") //(assetId, txid, count, inviterTokenId, receivableValue)
+                if (method == "buy") //(assetId, txid, count, inviterTokenId, receivableValue, oneLevelInviterPoint, twoLevelInviterPoint, threeLevelInviterPoint)
                 {
-                    if (args.Length != 5) return false;
-                    return BuyNewNft((byte[])args[0], (byte[])args[1], (int)args[2], (byte[])args[3], (BigInteger)args[4]);
+                    if (args.Length != 8) return false;
+                    return BuyNewNft((byte[])args[0], (byte[])args[1], (int)args[2], (byte[])args[3], (BigInteger)args[4], (BigInteger)args[5], (BigInteger)args[6], (BigInteger)args[7]);
                 }
 
                 //绑定
@@ -134,7 +134,9 @@ namespace NFT_Token
                 if (method == "addPoint") //(tokenId, pointValue)
                 {
                     if (args.Length != 2) return false;
-                    return AddPoint((byte[])args[0], (BigInteger)args[1]);
+                    var nftInfo = GetNftByTokenId((byte[])args[0]);
+                    if (nftInfo.Owner.Length != 20) return false;
+                    return AddPoint(nftInfo, (BigInteger)args[1]);
                 }
 
                 //交易
@@ -156,7 +158,7 @@ namespace NFT_Token
             return false;
         }
 
-        private static bool BuyNewNft(byte[] assetId, byte[] txid, int count, byte[] inviterTokenId, BigInteger receivableValue)
+        private static bool BuyNewNft(byte[] assetId, byte[] txid, int count, byte[] inviterTokenId, BigInteger receivableValue, BigInteger oneLevelInviterPoint, BigInteger twoLevelInviterPoint, BigInteger threeLevelInviterPoint)
         {
             if (assetId.Length != 20 || txid.Length != 32 || inviterTokenId.Length != 32) return false;
             if (count < 1 || receivableValue < 1) return false;
@@ -176,7 +178,8 @@ namespace NFT_Token
             //钱没给够或收款地址不对 false
             if (tx.From.Length == 0 || tx.To != gatherAddress || (BigInteger)tx.Value < receivableValue) return false;
 
-            Map<byte[], int> nftsMap = GetUserNfts(tx.From);
+            Map<byte[], int> allNftsMap = GetUserNfts(tx.From);
+            Map<byte[], int> newNftsMap = GetUserNfts(tx.From);
 
             for (int i = 1; i <= count; i++)
             {
@@ -184,13 +187,28 @@ namespace NFT_Token
 
                 SaveNftInfo(nftInfo);
 
-                nftsMap[nftInfo.TokenId] = 1;
+                allNftsMap[nftInfo.TokenId] = 1;
+                newNftsMap[nftInfo.TokenId] = 1;
             }
 
-            Storage.Put(Context(), UserNftMapKey(tx.From), nftsMap.Serialize());
+            Storage.Put(Context(), UserNftMapKey(tx.From), allNftsMap.Serialize());
+
+            //上线加分
+            AddPoint(inviterNftInfo, oneLevelInviterPoint);
+
+            //二级上线
+            var twoLevelInviterNftInfo = GetNftByTokenId(inviterNftInfo.InviterTokenId);
+            if (twoLevelInviterNftInfo.Owner.Length == 20)
+            {
+                AddPoint(twoLevelInviterNftInfo, twoLevelInviterPoint);
+                //三级上线
+                var threeLevelInviterNftInfo = GetNftByTokenId(twoLevelInviterNftInfo.InviterTokenId);
+                if (threeLevelInviterNftInfo.Owner.Length == 20)
+                    AddPoint(threeLevelInviterNftInfo, threeLevelInviterPoint);
+            }
 
             //notify
-            Bought(tx.From, count, (BigInteger)tx.Value, nftsMap);
+            Bought(tx.From, count, (BigInteger)tx.Value, newNftsMap);
 
             SetTxUsed(txid);
 
@@ -223,32 +241,31 @@ namespace NFT_Token
         {
             if (assetId.Length != 20 || txid.Length != 32 || tokenId.Length != 32) return false;
 
-            var v = new BigInteger(Storage.Get(Context(), BctTxidUsedKey(txid)));
-            if (v != 0) return false;
-
-            TransferLog tx = NativeAsset.GetTransferLog(assetId, txid);
-
-            byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
-            if (tx.From.Length != 20 || tx.To != gatherAddress || tx.Value <= receivableValue) return false;
+            byte[] v = Storage.Get(Storage.CurrentContext, BctTxidUsedKey(txid));
+            if (v.Length != 0) return false;
 
             var nftInfo = GetNftByTokenId(tokenId);
+
+            byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
+            //获取 bct 转账信息
+            TransferLog tx = NativeAsset.GetTransferLog(assetId, txid);
+
+            if (tx.To != gatherAddress || (BigInteger)tx.Value < receivableValue) return false;
             if (nftInfo.Owner != tx.From) return false;
 
             if (nftInfo.AvailablePoint < needPoint) return false;
-
             //升级
-            nftInfo.Rank += 1;
+            nftInfo.Grade += 1;
             //扣除消耗贡献值
             nftInfo.AvailablePoint -= needPoint;
 
             SaveNftInfo(nftInfo);
-
             SetTxUsed(txid);
 
             //notify
-            Upgraded(tokenId, tx.From, nftInfo.Rank - 1, nftInfo.Rank);
-
+            Upgraded(tokenId, nftInfo.Owner, nftInfo.Grade - 1, nftInfo.Grade);
             AddPointed(tokenId, nftInfo.Owner, 0 - needPoint);
+
             return true;
         }
 
@@ -257,12 +274,12 @@ namespace NFT_Token
             if (tokeId.Length != 32) return false;
             var nftInfo = GetNftByTokenId(tokeId);
             if (nftInfo.Owner.Length != 20) return false;
-            if (nftInfo.Rank < 2) return false;
-            nftInfo.Rank -= 1;
+            if (nftInfo.Grade < 2) return false;
+            nftInfo.Grade -= 1;
             SaveNftInfo(nftInfo);
 
             //(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank)
-            Upgraded(tokeId, nftInfo.Owner, nftInfo.Rank + 1, nftInfo.Rank);
+            Upgraded(tokeId, nftInfo.Owner, nftInfo.Grade + 1, nftInfo.Grade);
             return true;
         }
 
@@ -338,12 +355,9 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool AddPoint(byte[] tokenId, BigInteger pointValue)
+        private static bool AddPoint(NFTInfo nftInfo, BigInteger pointValue)
         {
             if (pointValue == 0) return true;
-
-            var nftInfo = GetNftByTokenId(tokenId);
-            if (nftInfo.Owner.Length != 20) return false;
 
             nftInfo.AvailablePoint += pointValue;
             if (pointValue > 0)
@@ -381,7 +395,7 @@ namespace NFT_Token
                 AllPoint = 0,
                 AvailablePoint = 0,
                 Owner = owner,
-                Rank = 1,
+                Grade = 1,
                 InviterTokenId = inviterTokenId
             };
             return nftInfo;
@@ -454,7 +468,7 @@ namespace NFT_Token
     {
         public byte[] TokenId; //tokenid 证书ID
         public byte[] Owner; //所有者 address
-        public BigInteger Rank; //等级
+        public BigInteger Grade; //等级
         public BigInteger AllPoint; //累积贡献值
         public BigInteger AvailablePoint; //可用贡献值
         public byte[] InviterTokenId; //邀请者证书ID

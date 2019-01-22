@@ -51,7 +51,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="build.tasks" />
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Neo.ConvertTask.dll" />
