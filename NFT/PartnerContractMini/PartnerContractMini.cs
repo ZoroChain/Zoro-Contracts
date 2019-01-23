@@ -91,6 +91,13 @@ namespace NFT_Token
                 // 以下接口只有 Active 时可用
                 if (GetState() != Active) return false;
 
+                //交易
+                if (method == "exchange") //(byte[] from, byte[] to, byte[] tokenId)
+                {
+                    if (args.Length != 3) return false;
+                    return ExchangeNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
+                }
+
                 byte[] admin = Storage.Get(Context(), "adminAddress");
                 if (!Runtime.CheckWitness(admin)) return false;
 
@@ -137,13 +144,6 @@ namespace NFT_Token
                     var nftInfo = GetNftByTokenId((byte[])args[0]);
                     if (nftInfo.Owner.Length != 20) return false;
                     return AddPoint(nftInfo, (BigInteger)args[1]);
-                }
-
-                //交易
-                if (method == "exchange") //(byte[] from, byte[] to, byte[] tokenId)
-                {
-                    if (args.Length != 3) return false;
-                    return ExchangeNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
                 }
 
                 //降级
@@ -317,6 +317,7 @@ namespace NFT_Token
 
         private static bool ExchangeNft(byte[] from, byte[] to, byte[] tokenId)
         {
+            if (!Runtime.CheckWitness(from)) return false;
             if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
 
             if (from == to) return true;
