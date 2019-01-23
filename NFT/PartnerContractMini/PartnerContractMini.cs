@@ -179,7 +179,7 @@ namespace NFT_Token
             if (tx.From.Length == 0 || tx.To != gatherAddress || (BigInteger)tx.Value < receivableValue) return false;
 
             Map<byte[], int> allNftsMap = GetUserNfts(tx.From);
-            Map<byte[], int> newNftsMap = GetUserNfts(tx.From);
+            Map<byte[], int> newNftsMap = new Map<byte[], int>();
 
             for (int i = 1; i <= count; i++)
             {
