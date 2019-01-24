@@ -98,6 +98,13 @@ namespace NFT_Token
                     return ExchangeNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
                 }
 
+                //绑定
+                if (method == "bind") //(address, tokenId)
+                {
+                    if (args.Length != 2) return false;
+                    return BindNft((byte[])args[0], (byte[])args[1]);
+                }
+
                 byte[] admin = Storage.Get(Context(), "adminAddress");
                 if (!Runtime.CheckWitness(admin)) return false;
 
@@ -121,13 +128,6 @@ namespace NFT_Token
                 {
                     if (args.Length != 8) return false;
                     return BuyNewNft((byte[])args[0], (byte[])args[1], (int)args[2], (byte[])args[3], (BigInteger)args[4], (BigInteger)args[5], (BigInteger)args[6], (BigInteger)args[7]);
-                }
-
-                //绑定
-                if (method == "bind") //(address, tokenId)
-                {
-                    if (args.Length != 2) return false;
-                    return BindNft((byte[])args[0], (byte[])args[1]);
                 }
 
                 //升级
@@ -217,6 +217,8 @@ namespace NFT_Token
 
         private static bool BindNft(byte[] address, byte[] tokenId)
         {
+            if (!Runtime.CheckWitness(address)) return false;
+
             if (address.Length != 20 || tokenId.Length != 32) return false;
 
             NFTInfo nftInfo = GetNftByTokenId(tokenId);
