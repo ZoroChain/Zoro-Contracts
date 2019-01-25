@@ -21,28 +21,18 @@ namespace ETH_Nep5
         }
 
         //管理员账户，改成自己测试用的的
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AVi4ML1JkXaW9B4DK6WjSbZzCGY9jn1s7D");
 
         public static string name() => "Zoro-ETH"; //名称
 
         public static string symbol() => "ETH"; //简称
-
-        private const ulong factor = 100000000; //精度
 
         public static byte decimals() => 8;
 
         public static object Main(string method, object[] args)
         {
             var magicstr = "nep5-eth";
-            if (Runtime.Trigger == TriggerType.Verification)
-            {
-                return false;
-            }
-            else if (Runtime.Trigger == TriggerType.VerificationR)
-            {
-                return true;
-            }
-            else if (Runtime.Trigger == TriggerType.Application)
+            if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
@@ -51,14 +41,11 @@ namespace ETH_Nep5
                 if (method == "decimals") return decimals();
                 if (method == "deploy")
                 {
-                    if (args.Length != 2)
-                        return false;
-                    if (!Runtime.CheckWitness(superAdmin))
-                        return false;
+                    if (args.Length != 2) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     byte[] to = (byte[])args[0];
                     BigInteger amount = (BigInteger)args[1];
-                    if (amount == 0)
-                        return false;
+                    if (amount == 0) return false;
                     var toKey = new byte[] { 0x11 }.Concat(to);
                     BigInteger value = Storage.Get(Storage.CurrentContext, toKey).AsBigInteger();
                     value += amount;
@@ -68,38 +55,30 @@ namespace ETH_Nep5
 
                 if (method == "balanceOf")
                 {
-                    if (args.Length != 1)
-                        return 0;
+                    if (args.Length != 1) return 0;
                     byte[] who = (byte[])args[0];
-                    if (who.Length != 20)
-                        return false;
+                    if (who.Length != 20) return false;
                     return balanceOf(who);
                 }
 
                 if (method == "transfer")
                 {
-                    if (args.Length != 3)
-                        return false;
+                    if (args.Length != 3) return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
-                    if (from == to)
-                        return true;
-                    if (from.Length != 20)
-                        return false;
+                    if (from == to) return true;
+                    if (from.Length != 20) return false;
                     BigInteger value = (BigInteger)args[2];
-                    if (!Runtime.CheckWitness(from))
-                        return false;
+                    if (!Runtime.CheckWitness(from)) return false;
                     if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                         return false;
-                    if (!IsPayable(to))
-                        return false;
+                    if (!IsPayable(to)) return false;
                     return transfer(from, to, value);
                 }
 
                 if (method == "getTxInfo")
                 {
-                    if (args.Length != 1)
-                        return 0;
+                    if (args.Length != 1) return 0;
                     byte[] txid = (byte[])args[0];
                     return getTxInfo(txid);
                 }
@@ -148,16 +127,13 @@ namespace ETH_Nep5
 
         private static bool transfer(byte[] from, byte[] to, BigInteger value)
         {
-            if (value <= 0)
-                return false;
-            if (from == to)
-                return true;
+            if (value <= 0) return false;
+            if (from == to) return true;
             if (from.Length > 0)
             {
                 var keyFrom = new byte[] { 0x11 }.Concat(from);
                 BigInteger from_value = Storage.Get(Storage.CurrentContext, keyFrom).AsBigInteger();
-                if (from_value < value)
-                    return false;
+                if (from_value < value) return false;
                 if (from_value == value)
                     Storage.Delete(Storage.CurrentContext, keyFrom);
                 else
@@ -200,16 +176,14 @@ namespace ETH_Nep5
         {
             byte[] keyTxid = new byte[] { 0x13 }.Concat(txid);
             byte[] v = Storage.Get(Storage.CurrentContext, keyTxid);
-            if (v.Length == 0)
-                return null;
+            if (v.Length == 0) return null;
             return Neo.SmartContract.Framework.Helper.Deserialize(v) as TransferInfo;
         }
 
         public static bool IsPayable(byte[] to)
         {
             var c = Blockchain.GetContract(to);
-            if (c.Equals(null))
-                return true;
+            if (c.Equals(null)) return true;
             return c.IsPayable;
         }
     }

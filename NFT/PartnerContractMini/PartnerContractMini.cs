@@ -305,6 +305,9 @@ namespace NFT_Token
 
             NFTInfo nftInfo = GetNftByTokenId(tokenId);
 
+            //没激活的不能绑定
+            if (!nftInfo.IsActivated) return false;
+
             var userTokenId = GetTokenIdByAddress(address);
 
             //重复绑定
