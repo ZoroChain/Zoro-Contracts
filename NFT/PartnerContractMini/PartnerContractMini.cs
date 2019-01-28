@@ -71,6 +71,11 @@ namespace NFT_Token
                         Storage.Put(Context(), "state", AllStop);
                     return true;
                 }
+    
+                if (method == "getState") return GetState();
+
+                // allstop 表示合约全部接口已停用
+                if (GetState() == AllStop) return false;
 
                 if (method == "setAdmin")
                 {
@@ -83,17 +88,12 @@ namespace NFT_Token
                 }
 
                 //invoke
-                if (method == "getState") return GetState();
-
-                // allstop 表示合约全部接口已停用
-                if (GetState() == AllStop) return false;
-
                 if (method == "getBindNft") return GetTokenIdByAddress((byte[])args[0]);
                 if (method == "getNftInfo") return GetNftByTokenId((byte[])args[0]);
                 if (method == "getExInfo") return GetExInfoByTxid((byte[])args[0]);
                 if (method == "getGather") return Storage.Get(Context(), "gatherAddress");
-                if (method == "getUserNfts") return GetUserNfts((byte[])args[0]);
                 if (method == "getTotal") return Storage.Get(Context(), "totalCount").AsBigInteger();
+                if (method == "getUserNftCount") return GetUserNftCount((byte[])args[0]);
                 if (method == "getNftCount") return Storage.Get(Context(), "nftCount").AsBigInteger();
 
                 // 以下接口只有 Active 时可用
@@ -144,7 +144,8 @@ namespace NFT_Token
                 if (method == "deploy") //(address)
                 {
                     if (args.Length != 1) return false;
-                    return DeployFirstNft((byte[])args[0]);
+                    var address = (byte[])args[0];
+                    return DeployFirstNft(address);
                 }
 
                 //购买
@@ -197,15 +198,14 @@ namespace NFT_Token
             //不是自己的不能删除
             if (nftInfo.Owner != address) return false;
             //已经激活的不能删除
-            if (nftInfo.IsActivated) return false;     
-
-            //从 Map 删除
-            Map<byte[], int> allNftsMap = GetUserNfts(address);
-            allNftsMap.Remove(tokenId);
-            Storage.Put(Context(), UserNftMapKey(address), allNftsMap.Serialize());
+            if (nftInfo.IsActivated) return false;
 
             //删除 nftInfo
             Storage.Delete(Context(), NftInfoKey(tokenId));
+
+            BigInteger userNftCount = GetUserNftCount(address);
+            if (userNftCount > 0)
+                Storage.Put(Context(), UserNftCountKey(address), userNftCount - 1);
 
             //已发行数量减 1
             BigInteger nftCount = Storage.Get(Context(), "nftCount").AsBigInteger();
@@ -227,7 +227,7 @@ namespace NFT_Token
             //获取邀请者证书信息
             NFTInfo inviterNftInfo = GetNftByTokenId(nftInfo.InviterTokenId);
             if (inviterNftInfo.Owner.Length != 20) return false;
-            
+
             //激活
             nftInfo.IsActivated = true;
 
@@ -254,13 +254,14 @@ namespace NFT_Token
             byte[] v = Storage.Get(Storage.CurrentContext, BctTxidUsedKey(txid));
             if (v.Length != 0) return false;
 
-            //获取邀请者证书信息
+            //获取邀请者证书信息 未激活不能邀请
             var inviterNftInfo = GetNftByTokenId(inviterTokenId);
             if (inviterNftInfo.Owner.Length != 20) return false;
+            if (!inviterNftInfo.IsActivated) return false;
 
             //判断是否已达数量上限
             BigInteger nftCount = Storage.Get(Context(), "nftCount").AsBigInteger();
-            BigInteger totalCount= Storage.Get(Context(), "totalCount").AsBigInteger();
+            BigInteger totalCount = Storage.Get(Context(), "totalCount").AsBigInteger();
             if (nftCount + count > totalCount) return false;
 
             byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
@@ -271,26 +272,27 @@ namespace NFT_Token
             //钱没给够或收款地址不对 false
             if (tx.From.Length == 0 || tx.To != gatherAddress || (BigInteger)tx.Value < receivableValue) return false;
 
-            Map<byte[], int> allNftsMap = GetUserNfts(tx.From);
+            byte[] address = tx.From;
+
             Map<byte[], int> newNftsMap = new Map<byte[], int>();
 
             for (int i = 1; i <= count; i++)
             {
-                NFTInfo nftInfo = CreateNft(tx.From, inviterTokenId, i);
+                NFTInfo nftInfo = CreateNft(address, inviterTokenId, i);
 
                 SaveNftInfo(nftInfo);
-                
-                allNftsMap[nftInfo.TokenId] = 1;
+
                 newNftsMap[nftInfo.TokenId] = 1;
             }
 
-            Storage.Put(Context(), UserNftMapKey(tx.From), allNftsMap.Serialize());
-            
+            BigInteger userNftCount = GetUserNftCount(address);
+            Storage.Put(Context(), UserNftCountKey(address), userNftCount + count);
+
             //更新数量
             Storage.Put(Context(), "nftCount", nftCount + count);
 
             //notify
-            Bought(tx.From, count, (BigInteger)tx.Value, newNftsMap);
+            Bought(address, count, (BigInteger)tx.Value, newNftsMap);
 
             SetTxUsed(txid);
 
@@ -376,23 +378,21 @@ namespace NFT_Token
 
             //判断初始发行是否已完成
             byte[] deploy_data = Storage.Get(Context(), "initDeploy");
-            if (deploy_data.Length != 0) return false;
-
-            byte[] userNftsBytes = Storage.Get(Context(), UserNftMapKey(address));
-            Map<byte[], int> nftsMap = new Map<byte[], int>();
-
-            if (userNftsBytes.Length > 0)
-                nftsMap = userNftsBytes.Deserialize() as Map<byte[], int>;
+            if (deploy_data.Length > 0) return false;
 
             //构建一个证书
             NFTInfo newNftInfo = CreateNft(address, new byte[] { }, 1);
 
-            nftsMap[newNftInfo.TokenId] = 1;
+            //创始证书自动激活
+            newNftInfo.IsActivated = true;
 
-            Storage.Put(Context(), UserNftMapKey(address), nftsMap.Serialize());
+            Map<byte[], int> nftsMap = new Map<byte[], int>();
+            nftsMap[newNftInfo.TokenId] = 1;
 
             //保存nft信息
             SaveNftInfo(newNftInfo);
+
+            Storage.Put(Context(), UserNftCountKey(address), 1);
 
             Storage.Put(Context(), "nftCount", 1);
 
@@ -416,21 +416,15 @@ namespace NFT_Token
             //from 没有证书、false
             if (fromNftInfo.Owner != from) return false;
 
-            Map<byte[], int> fromNftsMap = GetUserNfts(from);
-
-            Map<byte[], int> toNftsMap = GetUserNfts(to);
-
-            fromNftsMap.Remove(fromNftInfo.TokenId);
-
-            toNftsMap[fromNftInfo.TokenId] = 1;
-
-            Storage.Put(Context(), UserNftMapKey(from), fromNftsMap.Serialize());
-            Storage.Put(Context(), UserNftMapKey(to), toNftsMap.Serialize());
-
             //更换所有者
             fromNftInfo.Owner = to;
 
             SaveNftInfo(fromNftInfo);
+
+            BigInteger fromUserNftCount = GetUserNftCount(from);
+            Storage.Put(Context(), UserNftCountKey(from), fromUserNftCount - 1);
+            BigInteger toUserNftCount = GetUserNftCount(to);
+            Storage.Put(Context(), UserNftCountKey(to), fromUserNftCount + 1);
 
             var fromTokenId = GetTokenIdByAddress(from);
 
@@ -459,19 +453,16 @@ namespace NFT_Token
             return true;
         }
 
-        private static Map<byte[], int> GetUserNfts(byte[] address)
-        {
-            byte[] userNftsBytes = Storage.Get(Context(), UserNftMapKey(address));
-            Map<byte[], int> nftsMap = new Map<byte[], int>();
-            if (userNftsBytes.Length > 0)
-                nftsMap = userNftsBytes.Deserialize() as Map<byte[], int>;
-            return nftsMap;
-        }
-
         private static byte[] GetTokenIdByAddress(byte[] address)
         {
             var key = BindNftKey(address);
             return Storage.Get(Context(), key);
+        }
+
+        private static BigInteger GetUserNftCount(byte[] address)
+        {
+            var key = UserNftCountKey(address);
+            return Storage.Get(Context(), key).AsBigInteger();
         }
 
         public static NFTInfo CreateNft(byte[] owner, byte[] inviterTokenId, int num)
@@ -539,7 +530,7 @@ namespace NFT_Token
 
         private static StorageContext Context() => Storage.CurrentContext;
 
-        private static byte[] UserNftMapKey(byte[] address) => new byte[] { 0x10 }.Concat(address);
+        private static byte[] UserNftCountKey(byte[] address) => new byte[] { 0x10 }.Concat(address);
         private static byte[] BindNftKey(byte[] address) => new byte[] { 0x11 }.Concat(address);
         private static byte[] NftInfoKey(byte[] tokenId) => new byte[] { 0x12 }.Concat(tokenId);
         private static byte[] TxInfoKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
