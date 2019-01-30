@@ -17,7 +17,7 @@ namespace NFT_Token
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
 
         [DisplayName("buy")]
-        public static event Action<byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, int num, int Value, Map Nfts);
+        public static event Action<byte[], byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, byte[] inviterTokenId, int num, int Value, Map Nfts TokenId);
 
         [DisplayName("exchange")]
         public static event Action<byte[], byte[], byte[]> Exchanged;//(byte[] from, byte[] to, byte[] tokenId);
@@ -94,7 +94,8 @@ namespace NFT_Token
                 if (method == "getGather") return Storage.Get(Context(), "gatherAddress");
                 if (method == "getTotal") return Storage.Get(Context(), "totalCount").AsBigInteger();
                 if (method == "getUserNftCount") return GetUserNftCount((byte[])args[0]);
-                if (method == "getNftCount") return Storage.Get(Context(), "nftCount").AsBigInteger();
+                if (method == "getAllNftCount") return Storage.Get(Context(), "allNftCount").AsBigInteger();
+                if (method == "getActivatedCount") return Storage.Get(Context(), "activatedCount").AsBigInteger();
 
                 // 以下接口只有 Active 时可用
                 if (GetState() != Active) return false;
@@ -208,9 +209,9 @@ namespace NFT_Token
                 Storage.Put(Context(), UserNftCountKey(address), userNftCount - 1);
 
             //已发行数量减 1
-            BigInteger nftCount = Storage.Get(Context(), "nftCount").AsBigInteger();
+            BigInteger nftCount = Storage.Get(Context(), "allNftCount").AsBigInteger();
             if (nftCount > 0)
-                Storage.Put(Context(), "nftCount", nftCount - 1);
+                Storage.Put(Context(), "allNftCount", nftCount - 1);
 
             Destroyed(address, tokenId);
             return true;
@@ -232,6 +233,9 @@ namespace NFT_Token
             nftInfo.IsActivated = true;
 
             SaveNftInfo(nftInfo);
+
+            BigInteger activatedCount = Storage.Get(Context(), "activatedCount").AsBigInteger();
+            Storage.Put(Context(), "activatedCount", activatedCount + 1);
 
             //上线加分
             AddPoint(inviterNftInfo, oneLevelInviterPoint);
@@ -260,7 +264,7 @@ namespace NFT_Token
             if (!inviterNftInfo.IsActivated) return false;
 
             //判断是否已达数量上限
-            BigInteger nftCount = Storage.Get(Context(), "nftCount").AsBigInteger();
+            BigInteger nftCount = Storage.Get(Context(), "allNftCount").AsBigInteger();
             BigInteger totalCount = Storage.Get(Context(), "totalCount").AsBigInteger();
             if (nftCount + count > totalCount) return false;
 
@@ -289,10 +293,10 @@ namespace NFT_Token
             Storage.Put(Context(), UserNftCountKey(address), userNftCount + count);
 
             //更新数量
-            Storage.Put(Context(), "nftCount", nftCount + count);
+            Storage.Put(Context(), "allNftCount", nftCount + count);
 
             //notify
-            Bought(address, count, (BigInteger)tx.Value, newNftsMap);
+            Bought(address, inviterTokenId, count, (BigInteger)tx.Value, newNftsMap);
 
             SetTxUsed(txid);
 
@@ -394,10 +398,10 @@ namespace NFT_Token
 
             Storage.Put(Context(), UserNftCountKey(address), 1);
 
-            Storage.Put(Context(), "nftCount", 1);
+            Storage.Put(Context(), "allNftCount", 1);
 
             //notify
-            Bought(address, 1, 0, nftsMap);
+            Bought(address, null, 1, 0, nftsMap);
 
             Storage.Put(Context(), "initDeploy", 1);
 

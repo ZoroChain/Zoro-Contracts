@@ -31,7 +31,7 @@ namespace BitCoin_Nep5
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "nep5-btc";
+            var magicstr = "nep5-btcv1.0";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
