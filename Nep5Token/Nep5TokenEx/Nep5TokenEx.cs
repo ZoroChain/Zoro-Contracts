@@ -9,7 +9,7 @@ using Helper = Neo.SmartContract.Framework.Helper;
 
 namespace BCTContract
 {
-    public class BCT : SmartContract
+    public class Nep5TokenEx : SmartContract
     {
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> Transferred;//(byte[] from, byte[] to, BigInteger value)
@@ -21,7 +21,9 @@ namespace BCTContract
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
-        private const long totalCoin = 0;//总量 没有总量
+        private const ulong factor = 100000000;//精度
+        private const ulong oneHundredMillion = 100000000; //一亿
+        private const ulong totalCoin = 1 * oneHundredMillion * factor;//总量
 
         public static object Main(string method, object[] args)
         {
@@ -29,6 +31,7 @@ namespace BCTContract
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
+                var entryscript = ExecutionEngine.EntryScriptHash;
 
                 //管理员权限     设置合约状态          
                 if (method == "setState")
@@ -54,19 +57,9 @@ namespace BCTContract
                 if (method == "name") return Name();
                 if (method == "symbol") return Symbol();
                 if (method == "decimals") return Decimals();
-                if (method == "balanceOf")
-                {
-                    byte[] who = (byte[])args[0];
-                    if (who.Length != 20) return false;
-                    return balanceOf(who);
-                }
-
-                if (method == "getTxInfo")
-                {
-                    byte[] txid = (byte[])args[0];
-                    if (txid.Length != 32) return false;
-                    return getTxInfo(txid);
-                }
+                if (method == "balanceOf") return BalanceOf((byte[])args[0]);
+                if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
+                if (method == "allowance") return GetAllowance((byte[])args[0], (byte[])args[1]);
 
                 // 如果合约不是 Active 状态、后面接口不可用
                 if (GetState() != Active) return false;
@@ -75,29 +68,20 @@ namespace BCTContract
                 {
                     if (!Runtime.CheckWitness(superAdmin)) return false;
 
-                    if (args.Length != 2) return false;
-                    byte[] address = (byte[])args[0];
-                    BigInteger amount = (BigInteger)args[1];
+                    byte[] total_supply = Storage.Get(Context(), "totalSupply");
+                    if (total_supply.Length != 0) return false;
 
-                    if (address.Length != 20) return false;
-                    if (amount <= 0) return false;
-
-                    var key = AddressKey(address);
-
-                    BigInteger addressBalance = Storage.Get(Context(), key).AsBigInteger();
-                    //往指定地址发行一笔
-                    Storage.Put(Context(), key, addressBalance + amount);
-
-                    BigInteger total_supply = Storage.Get(Context(), "totalSupply").AsBigInteger();
-
-                    Storage.Put(Context(), "totalSupply", total_supply + amount);
+                    var keySuperAdmin = AddressKey(superAdmin);
+                    Storage.Put(Context(), keySuperAdmin, totalCoin);
+                    Storage.Put(Context(), "totalSupply", totalCoin);
 
                     //notify
-                    Transferred(null, address, amount);
+                    Transferred(null, superAdmin, totalCoin);
                 }
 
                 if (method == "transfer")
                 {
+                    if (args.Length != 3) return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
                     if (from.Length != 20 || to.Length != 20) return false;
@@ -106,13 +90,43 @@ namespace BCTContract
 
                     if (!Runtime.CheckWitness(from)) return false;
 
-                    if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger()) return false;
+                    if (entryscript != callscript) return false;
                     if (!IsPayable(to)) return false;
 
                     return Transfer(from, to, value);
                 }
 
-                if (method == "transfer_app")
+                if (method == "transferFrom")
+                {
+                    if (args.Length != 3) return false;
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    if (from.Length != 20 || to.Length != 20) return false;
+
+                    BigInteger value = (BigInteger)args[2];                   
+
+                    if (entryscript != callscript) return false;
+                    if (!IsPayable(to)) return false;
+
+                    return TransferFrom(from, to, value);
+                }
+
+                if (method == "approve")
+                {
+                    if (args.Length != 3) return false;
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    if (from.Length != 20 || to.Length != 20) return false;
+
+                    BigInteger value = (BigInteger)args[2];
+
+                    if (entryscript != callscript) return false;
+                    if (!IsPayable(to)) return false;
+
+                    return Approve(from, to, value);
+                }
+
+                if (method == "transferApp")
                 {
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
@@ -120,50 +134,63 @@ namespace BCTContract
 
                     BigInteger value = (BigInteger)args[2];
 
-                    if (from.AsBigInteger() != callscript.AsBigInteger()) return false;
+                    if (from != callscript) return false;
                     return Transfer(from, to, value);
                 }
-
-                #region 升级合约,耗费490,仅限管理员
-                if (method == "updatecontract")
-                {
-                    //不是管理员 不能操作
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    if (args.Length != 1 && args.Length != 9) return false;
-
-                    byte[] script = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script;
-                    byte[] new_script = (byte[])args[0];
-                    //如果传入的脚本一样 不继续操作
-                    if (script == new_script) return false;
-
-                    byte[] parameter_list = new byte[] { 0x07, 0x10 };
-                    byte return_type = 0x05;
-                    bool need_storage = (bool)(object)05;
-                    string name = "bct";
-                    string version = "1.0";
-                    string author = "ZoroChain";
-                    string email = "0";
-                    string description = "bct";
-
-                    if (args.Length == 9)
-                    {
-                        parameter_list = (byte[])args[1];
-                        return_type = (byte)args[2];
-                        need_storage = (bool)args[3];
-                        name = (string)args[4];
-                        version = (string)args[5];
-                        author = (string)args[6];
-                        email = (string)args[7];
-                        description = (string)args[8];
-                    }
-                    Contract.Migrate(new_script, parameter_list, return_type, need_storage, name, version, author, email, description);
-                    return true;
-                }
-                #endregion
             }
 
             return false;
 
+        }
+
+        private static bool Approve(byte[] from, byte[] to, BigInteger value)
+        {
+            if (value <= 0) return false;
+            if (from == to) return true;
+
+            if (!Runtime.CheckWitness(from)) return false;
+
+            BigInteger fromBalance = BalanceOf(from);
+            if (fromBalance < value) return false;
+
+            Storage.Put(Context(), AllowanceKey(from, to), value);
+
+            return true;
+        }
+
+        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value)
+        {
+            if (value <= 0) return false;
+            if (from == to) return true;
+
+            BigInteger approvedTransferAmount = GetAllowance(from, to);    // how many tokens is this address authorised to transfer
+            BigInteger fromBalance = BalanceOf(from);                   // retrieve balance of authorised account
+
+            if (approvedTransferAmount < value || fromBalance < value) return false;
+            BigInteger recipientBalance = BalanceOf(to);
+
+            if (fromBalance == value)
+                Storage.Delete(Context(), AddressKey(from));
+            else
+                Storage.Put(Context(), AddressKey(from), fromBalance - value);
+
+            Storage.Put(Context(), AddressKey(to), recipientBalance + value);
+
+            if (approvedTransferAmount == value)
+                Storage.Delete(Context(), AllowanceKey(from, to));
+            else
+                Storage.Put(Context(), AllowanceKey(from, to), approvedTransferAmount - value);
+
+            Transferred(from, to, value);
+            return true;
+        }
+
+        private static BigInteger GetAllowance(byte[] from, byte[] to)
+        {
+            if (from.Length != 20 || to.Length != 20)
+                return 0;
+            byte[] key = AllowanceKey(from, to);
+            return Storage.Get(Context(), key).AsBigInteger();
         }
 
         public static string Name() => "BlaCat Token";//名称
@@ -176,7 +203,7 @@ namespace BCTContract
 
         private static byte[] GetState() => Storage.Get(Context(), "state");
 
-        private static object TotalSupply() => Storage.Get(Context(), "totalSupply").AsBigInteger();
+        private static BigInteger TotalSupply() => Storage.Get(Context(), "totalSupply").AsBigInteger();
 
         private static bool Transfer(byte[] from, byte[] to, BigInteger value)
         {
@@ -195,12 +222,12 @@ namespace BCTContract
             BigInteger to_value = Storage.Get(Context(), keyTo).AsBigInteger();
             Storage.Put(Context(), keyTo, to_value + value);
 
-            setTxInfo(from, to, value);
+            SetTxInfo(from, to, value);
             Transferred(from, to, value);
             return true;
         }
 
-        private static void setTxInfo(byte[] from, byte[] to, BigInteger value)
+        private static void SetTxInfo(byte[] from, byte[] to, BigInteger value)
         {
             TransferInfo info = new TransferInfo();
             info.@from = from;
@@ -212,13 +239,13 @@ namespace BCTContract
             Storage.Put(Context(), keyTxid, txInfo);
         }
 
-        private static object balanceOf(byte[] who)
+        private static BigInteger BalanceOf(byte[] who)
         {
             var keyAddress = AddressKey(who);
             return Storage.Get(Context(), keyAddress).AsBigInteger();
         }
 
-        private static TransferInfo getTxInfo(byte[] txid)
+        private static TransferInfo GetTxInfo(byte[] txid)
         {
             byte[] keyTxid = TxidKey(txid);
             byte[] v = Storage.Get(Context(), keyTxid);
@@ -237,6 +264,7 @@ namespace BCTContract
 
         private static byte[] AddressKey(byte[] address) => new byte[] { 0x11 }.Concat(address);
         private static byte[] TxidKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
+        private static byte[] AllowanceKey(byte[] from, byte[] to) => from.Concat(to);
     }
 
     public class TransferInfo

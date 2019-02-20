@@ -14,7 +14,7 @@ namespace NFT_Token
     public class NFTContract : SmartContract
     {
         //超级管理员、只用来设定操作管理员和合约状态
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AM5ho5nEodQiai1mCTFDV3YUNYApCorMCX");
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");
 
         [DisplayName("buy")]
         public static event Action<byte[], byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, byte[] inviterTokenId, int num, int Value, Map Nfts TokenId);
@@ -26,7 +26,7 @@ namespace NFT_Token
         public static event Action<byte[], byte[], BigInteger, BigInteger> Upgraded;//(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank);
 
         [DisplayName("addpoint")]
-        public static event Action<byte[], byte[], BigInteger> AddPointed; //(tokenID, address, point)
+        public static event Action<byte[], byte[], BigInteger, byte[]> AddPointed; //(tokenID, address, point, type)
 
         [DisplayName("bind")]
         public static event Action<byte[], byte[]> Bound; //(address, tokenId)
@@ -54,7 +54,7 @@ namespace NFT_Token
         /// </param>
         public static object Main(string method, object[] args)
         {
-            var magicstr = "BlaCat Partner Certificate Token v3.0";
+            var magicstr = "BlaCat Partner Certificate Token v3.1";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
@@ -171,12 +171,12 @@ namespace NFT_Token
                 }
 
                 //加分
-                if (method == "addPoint") //(tokenId, pointValue)
+                if (method == "addPoint") //(tokenId, pointValue, type)
                 {
-                    if (args.Length != 2) return false;
+                    if (args.Length != 3) return false;
                     var nftInfo = GetNftByTokenId((byte[])args[0]);
                     if (nftInfo.Owner.Length != 20) return false;
-                    return AddPoint(nftInfo, (BigInteger)args[1]);
+                    return AddPoint(nftInfo, (BigInteger)args[1], (byte[])args[2]);
                 }
 
                 //降级
@@ -238,12 +238,12 @@ namespace NFT_Token
             Storage.Put(Context(), "activatedCount", activatedCount + 1);
 
             //上线加分
-            AddPoint(inviterNftInfo, oneLevelInviterPoint);
+            AddPoint(inviterNftInfo, oneLevelInviterPoint, "invited".AsByteArray());
 
             //二级上线加分
             var twoLevelInviterNftInfo = GetNftByTokenId(inviterNftInfo.InviterTokenId);
             if (twoLevelInviterNftInfo.Owner.Length == 20)
-                AddPoint(twoLevelInviterNftInfo, twoLevelInviterPoint);
+                AddPoint(twoLevelInviterNftInfo, twoLevelInviterPoint, "invited".AsByteArray());
 
             Activated(nftInfo.Owner, tokenId);
 
@@ -357,7 +357,7 @@ namespace NFT_Token
 
             //notify
             Upgraded(tokenId, nftInfo.Owner, nftInfo.Grade - 1, nftInfo.Grade);
-            AddPointed(tokenId, nftInfo.Owner, 0 - needPoint);
+            AddPointed(tokenId, nftInfo.Owner, 0 - needPoint, "upgrade".AsByteArray());
 
             return true;
         }
@@ -399,6 +399,7 @@ namespace NFT_Token
             Storage.Put(Context(), UserNftCountKey(address), 1);
 
             Storage.Put(Context(), "allNftCount", 1);
+            Storage.Put(Context(), "activatedCount", 1);
 
             //notify
             Bought(address, null, 1, 0, nftsMap);
@@ -443,7 +444,7 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool AddPoint(NFTInfo nftInfo, BigInteger pointValue)
+        private static bool AddPoint(NFTInfo nftInfo, BigInteger pointValue, byte[] type)
         {
             if (pointValue == 0) return true;
 
@@ -453,7 +454,7 @@ namespace NFT_Token
 
             SaveNftInfo(nftInfo);
             //notify
-            AddPointed(nftInfo.TokenId, nftInfo.Owner, pointValue);
+            AddPointed(nftInfo.TokenId, nftInfo.Owner, pointValue, type);
             return true;
         }
 
