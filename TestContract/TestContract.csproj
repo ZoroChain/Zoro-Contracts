@@ -34,7 +34,7 @@
   <ItemGroup>
     <Reference Include="Neo.SmartContract.Framework, Version=2.7.3.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Neo.SmartContract.Framework.dll</HintPath>
+      <HintPath>..\..\Zoro.SmartContract.Devpack\Neo.SmartContract.Framework\bin\Release\netstandard1.6\Neo.SmartContract.Framework.dll</HintPath>
     </Reference>
     <Reference Include="netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51" />
     <Reference Include="System" />

@@ -14,6 +14,9 @@ namespace BCTContract
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> Transferred;//(byte[] from, byte[] to, BigInteger value)
 
+        [DisplayName("approve")]
+        public static event Action<byte[], byte[], BigInteger> Approved;//(byte[] from, byte[] to, BigInteger value)
+
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AcQLYjGbQU2bEQ8RKFXUcf8XvromfUQodq");
 
@@ -103,11 +106,7 @@ namespace BCTContract
                     byte[] to = (byte[])args[1];
                     if (from.Length != 20 || to.Length != 20) return false;
 
-                    BigInteger value = (BigInteger)args[2];                   
-
-                    if (entryscript != callscript) return false;
-                    if (!IsPayable(to)) return false;
-
+                    BigInteger value = (BigInteger)args[2];
                     return TransferFrom(from, to, value);
                 }
 
@@ -120,13 +119,12 @@ namespace BCTContract
 
                     BigInteger value = (BigInteger)args[2];
 
-                    if (entryscript != callscript) return false;
-                    if (!IsPayable(to)) return false;
+                    if (entryscript != callscript) return false;          
 
                     return Approve(from, to, value);
                 }
 
-                if (method == "transferApp")
+                if (method == "transfer_App")
                 {
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
@@ -141,56 +139,6 @@ namespace BCTContract
 
             return false;
 
-        }
-
-        private static bool Approve(byte[] from, byte[] to, BigInteger value)
-        {
-            if (value <= 0) return false;
-            if (from == to) return true;
-
-            if (!Runtime.CheckWitness(from)) return false;
-
-            BigInteger fromBalance = BalanceOf(from);
-            if (fromBalance < value) return false;
-
-            Storage.Put(Context(), AllowanceKey(from, to), value);
-
-            return true;
-        }
-
-        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value)
-        {
-            if (value <= 0) return false;
-            if (from == to) return true;
-
-            BigInteger approvedTransferAmount = GetAllowance(from, to);    // how many tokens is this address authorised to transfer
-            BigInteger fromBalance = BalanceOf(from);                   // retrieve balance of authorised account
-
-            if (approvedTransferAmount < value || fromBalance < value) return false;
-            BigInteger recipientBalance = BalanceOf(to);
-
-            if (fromBalance == value)
-                Storage.Delete(Context(), AddressKey(from));
-            else
-                Storage.Put(Context(), AddressKey(from), fromBalance - value);
-
-            Storage.Put(Context(), AddressKey(to), recipientBalance + value);
-
-            if (approvedTransferAmount == value)
-                Storage.Delete(Context(), AllowanceKey(from, to));
-            else
-                Storage.Put(Context(), AllowanceKey(from, to), approvedTransferAmount - value);
-
-            Transferred(from, to, value);
-            return true;
-        }
-
-        private static BigInteger GetAllowance(byte[] from, byte[] to)
-        {
-            if (from.Length != 20 || to.Length != 20)
-                return 0;
-            byte[] key = AllowanceKey(from, to);
-            return Storage.Get(Context(), key).AsBigInteger();
         }
 
         public static string Name() => "BlaCat Token";//名称
@@ -237,6 +185,59 @@ namespace BCTContract
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
             byte[] keyTxid = TxidKey(txid);
             Storage.Put(Context(), keyTxid, txInfo);
+        }
+
+        private static bool Approve(byte[] from, byte[] to, BigInteger value)
+        {
+            if (value <= 0) return false;
+            if (from == to) return true;
+
+            if (!Runtime.CheckWitness(from)) return false;
+
+            BigInteger fromBalance = BalanceOf(from);
+            if (fromBalance < value) return false;
+
+            Storage.Put(Context(), AllowanceKey(from, to), value);
+
+            Approved(from, to, value);
+            return true;
+        }
+
+        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value)
+        {
+            if (value <= 0) return false;
+            if (from == to) return true;
+
+            BigInteger approvedTransferAmount = GetAllowance(from, to);    // how many tokens is this address authorised to transfer
+            BigInteger fromBalance = BalanceOf(from);                   // retrieve balance of authorised account
+
+            if (approvedTransferAmount < value || fromBalance < value) return false;
+            BigInteger recipientBalance = BalanceOf(to);
+
+            if (fromBalance == value)
+                Storage.Delete(Context(), AddressKey(from));
+            else
+                Storage.Put(Context(), AddressKey(from), fromBalance - value);
+
+            Storage.Put(Context(), AddressKey(to), recipientBalance + value);
+
+            if (approvedTransferAmount == value)
+                Storage.Delete(Context(), AllowanceKey(from, to));
+            else
+                Storage.Put(Context(), AllowanceKey(from, to), approvedTransferAmount - value);
+
+            SetTxInfo(from, to, value);
+
+            Transferred(from, to, value);
+            return true;
+        }
+
+        private static BigInteger GetAllowance(byte[] from, byte[] to)
+        {
+            if (from.Length != 20 || to.Length != 20)
+                return 0;
+            byte[] key = AllowanceKey(from, to);
+            return Storage.Get(Context(), key).AsBigInteger();
         }
 
         private static BigInteger BalanceOf(byte[] who)

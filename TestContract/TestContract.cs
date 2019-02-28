@@ -65,6 +65,26 @@ namespace TestContract
                     return aa;
                 }
 
+                if (method == "transferFrom")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] from = (byte[])args[1];
+                    byte[] to = (byte[])args[2];
+                    BigInteger value = (BigInteger)args[3];
+                    byte[] spender = ExecutionEngine.ExecutingScriptHash;
+
+                    Runtime.Notify(spender, value);
+
+                    Runtime.Notify(spender, value, from, to);
+
+                    object[] _p = new object[4] { asset_id, from, to, value };
+
+                    var aa = NativeAsset.Call("TransferFrom", _p);
+
+                    Runtime.Notify(1);
+                    Runtime.Notify(1,aa);
+                }
+
                 if (method == "GetTransferLog")
                 {
                     byte[] asset_id = (byte[])args[0];
