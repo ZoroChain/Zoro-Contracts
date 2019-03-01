@@ -105,26 +105,28 @@ namespace BCTContract
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
                     if (from.Length != 20 || to.Length != 20) return false;
-
                     BigInteger value = (BigInteger)args[2];
-                    return TransferFrom(from, to, value);
+
+                    if (entryscript != callscript) return false;
+
+                    return TransferFrom(from, to, value, callscript);
                 }
 
                 if (method == "approve")
                 {
                     if (args.Length != 3) return false;
                     byte[] from = (byte[])args[0];
-                    byte[] to = (byte[])args[1];
-                    if (from.Length != 20 || to.Length != 20) return false;
+                    byte[] spender = (byte[])args[1];
+                    if (from.Length != 20 || spender.Length != 20) return false;
 
                     BigInteger value = (BigInteger)args[2];
 
                     if (entryscript != callscript) return false;          
 
-                    return Approve(from, to, value);
+                    return Approve(from, spender, value);
                 }
 
-                if (method == "transfer_App")
+                if (method == "transferApp")
                 {
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
@@ -141,9 +143,9 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "BlaCat Token";//名称
+        public static string Name() => "TestCoin1";//名称
 
-        public static string Symbol() => "BCT";//简称
+        public static string Symbol() => "TC1";//简称
 
         public static byte Decimals() => 8;//精度
 
@@ -187,28 +189,28 @@ namespace BCTContract
             Storage.Put(Context(), keyTxid, txInfo);
         }
 
-        private static bool Approve(byte[] from, byte[] to, BigInteger value)
+        private static bool Approve(byte[] from, byte[] spender, BigInteger value)
         {
             if (value <= 0) return false;
-            if (from == to) return true;
+            if (from == spender) return true;
 
             if (!Runtime.CheckWitness(from)) return false;
 
             BigInteger fromBalance = BalanceOf(from);
             if (fromBalance < value) return false;
 
-            Storage.Put(Context(), AllowanceKey(from, to), value);
+            Storage.Put(Context(), AllowanceKey(from, spender), value);
 
-            Approved(from, to, value);
+            Approved(from, spender, value);
             return true;
         }
 
-        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value)
+        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value, byte[] spender)
         {
             if (value <= 0) return false;
             if (from == to) return true;
 
-            BigInteger approvedTransferAmount = GetAllowance(from, to);    // how many tokens is this address authorised to transfer
+            BigInteger approvedTransferAmount = GetAllowance(from, spender);    // how many tokens is this address authorised to transfer
             BigInteger fromBalance = BalanceOf(from);                   // retrieve balance of authorised account
 
             if (approvedTransferAmount < value || fromBalance < value) return false;
@@ -222,9 +224,9 @@ namespace BCTContract
             Storage.Put(Context(), AddressKey(to), recipientBalance + value);
 
             if (approvedTransferAmount == value)
-                Storage.Delete(Context(), AllowanceKey(from, to));
+                Storage.Delete(Context(), AllowanceKey(from, spender));
             else
-                Storage.Put(Context(), AllowanceKey(from, to), approvedTransferAmount - value);
+                Storage.Put(Context(), AllowanceKey(from, spender), approvedTransferAmount - value);
 
             SetTxInfo(from, to, value);
 
@@ -232,11 +234,9 @@ namespace BCTContract
             return true;
         }
 
-        private static BigInteger GetAllowance(byte[] from, byte[] to)
+        private static BigInteger GetAllowance(byte[] from, byte[] spender)
         {
-            if (from.Length != 20 || to.Length != 20)
-                return 0;
-            byte[] key = AllowanceKey(from, to);
+            byte[] key = AllowanceKey(from, spender);
             return Storage.Get(Context(), key).AsBigInteger();
         }
 
@@ -265,7 +265,7 @@ namespace BCTContract
 
         private static byte[] AddressKey(byte[] address) => new byte[] { 0x11 }.Concat(address);
         private static byte[] TxidKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
-        private static byte[] AllowanceKey(byte[] from, byte[] to) => from.Concat(to);
+        private static byte[] AllowanceKey(byte[] from, byte[] spender) => from.Concat(spender);
     }
 
     public class TransferInfo

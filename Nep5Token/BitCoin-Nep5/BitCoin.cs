@@ -1,7 +1,6 @@
 ﻿using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
-using System;
 using System.ComponentModel;
 using System.Numerics;
 
@@ -23,15 +22,15 @@ namespace BitCoin_Nep5
         //管理员账户，改成自己测试用的的
         private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AVi4ML1JkXaW9B4DK6WjSbZzCGY9jn1s7D");
 
-        public static string name() => "Zoro-BitCoin";//名称
+        public static string name() => "Zoro-GAS";//名称
 
-        public static string symbol() => "BTC";//简称
+        public static string symbol() => "GAS";//简称
 
         public static byte decimals() => 8;
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "nep5-btcv1.0";
+            var magicstr = "nep5-gasv1.0";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
@@ -97,11 +96,11 @@ namespace BitCoin_Nep5
                     byte[] parameter_list = new byte[] { 0x07, 0x10 };
                     byte return_type = 0x05;
                     bool need_storage = (bool)(object)05;
-                    string name = "btc";
+                    string name = "gas";
                     string version = "1.0";
                     string author = "ZoroChain";
                     string email = "0";
-                    string description = "btc";
+                    string description = "gas";
 
                     if (args.Length == 9)
                     {

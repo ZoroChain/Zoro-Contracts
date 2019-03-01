@@ -17,7 +17,7 @@ namespace TestContract
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "Test_Contract_v0.33";
+            var magicstr = "Test_Contract_v0.34";
 
             if (Runtime.Trigger == TriggerType.Application)
             {
@@ -71,18 +71,32 @@ namespace TestContract
                     byte[] from = (byte[])args[1];
                     byte[] to = (byte[])args[2];
                     BigInteger value = (BigInteger)args[3];
+
                     byte[] spender = ExecutionEngine.ExecutingScriptHash;
 
-                    Runtime.Notify(spender, value);
+                    var para = new object[3] { from, to, value };
+                    deleCall contract = (deleCall)asset_id.ToDelegate();
+                    contract("transferFrom", para);
 
                     Runtime.Notify(spender, value, from, to);
 
-                    object[] _p = new object[4] { asset_id, from, to, value };
 
-                    var aa = NativeAsset.Call("TransferFrom", _p);
+                }
 
-                    Runtime.Notify(1);
-                    Runtime.Notify(1,aa);
+                if (method == "transferApp")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    BigInteger value = (BigInteger)args[2];
+
+                    byte[] from = ExecutionEngine.ExecutingScriptHash;
+
+                    var para = new object[3] { from, to, value };
+                    var contract = (deleCall)asset_id.ToDelegate();
+                    contract("transferApp", para);
+                    Runtime.Notify(from, to, value);
+
+
                 }
 
                 if (method == "GetTransferLog")
@@ -93,27 +107,6 @@ namespace TestContract
                     var tInfo = new TransferInfo();
                     var info = NativeAsset.Call("GetTransferLog", asset_id, txid);
                     return info;
-                }
-
-                if (method == "GetTransferLog1")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    byte[] txid = (byte[])args[1];
-
-                    var tInfo = new TransferInfo();
-                    var info = NativeAsset.GetTransferLog(asset_id, txid);
-                    return info.From;
-                }
-
-
-                if (method == "GetTransferLog2")
-                {
-                    byte[] asset_id = (byte[])args[0];
-                    byte[] txid = (byte[])args[1];
-
-                    var tInfo = new TransferInfo();
-                    var info = NativeAsset.GetTransferLog(asset_id, txid);
-                    return info.To;
                 }
 
                 if (method == "GetTransferLog3")

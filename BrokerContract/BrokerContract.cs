@@ -15,20 +15,20 @@ namespace BrokerContract
         [DisplayName("makeOffer")]
         public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCreated; // (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount)
 
-        [DisplayName("filled")]
+        [DisplayName("fillOffer")]
         public static event Action<byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger, BigInteger> EmitFilled; // (address, offerHash, fillAmount, offerAssetID, offerAmount, wantAssetID, wantAmount, amountFillerGet)
 
-        [DisplayName("cancelled")]
+        [DisplayName("cancelOffer")]
         public static event Action<byte[], byte[], BigInteger> EmitCancelled; // (address, offerHash, feeReturnAmount)
 
         [DisplayName("balanceChanged")]
-        public static event Action<byte[], byte[], BigInteger, string> ChangedBalance; // (address, assetID, amount, reason)
+        public static event Action<byte[], byte[], BigInteger, string> EmitChangedBalance; // (address, assetID, amount, reason)
 
         [DisplayName("depositted")]
-        public static event Action<byte[], byte[], BigInteger> Depositted; // (address, assetID, amount)
+        public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
 
         [DisplayName("withdrawn")]
-        public static event Action<byte[], byte[], BigInteger> EmitWithdrawn; // (address, assetID, amount, utxoUsed)
+        public static event Action<byte[], byte[], BigInteger> EmitWithdrawn; // (address, assetID, amount)
 
         [DisplayName("addedToWhitelist")]
         public static event Action<byte[]> EmitAddedToWhitelist; // (scriptHash, whitelistEnum)
@@ -43,9 +43,9 @@ namespace BrokerContract
         public static event Action<byte[]> EmitDealerAddressSet; // (address)
 
         [DisplayName("initialized")]
-        public static event Action Initialized;
+        public static event Action EmitInitialized;
 
-        // Broker Settings & Hardcaps
+        // superAdmin
         private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
 
         // Contract States
@@ -89,8 +89,14 @@ namespace BrokerContract
                 //存钱 充值
                 if (operation == "deposit") // (originator, assetID, value, isGlobal) 存钱，如果不能跳板调用的话需要支持 txid 存钱
                 {
-                    if (args.Length != 3) return false;
+                    if (args.Length != 4) return false;
                     return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2],(BigInteger)args[3]);
+                }
+                //取钱 提现
+                if (operation == "withdraw") // originator, withdrawAssetId, withdrawAmount, isGlobal
+                {
+                    if (args.Length != 4) return false;
+                    return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
                 }
                 //挂单
                 if (operation == "makeOffer") // (makerAddress, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetID, feeAmount)
@@ -110,12 +116,6 @@ namespace BrokerContract
                 {
                     if (args.Length != 1) return false;
                     return CancelOffer((byte[])args[0]);
-                }
-                //取钱 提现
-                if (operation == "withdraw") // originator, withdrawAssetId, withdrawAmount
-                {
-                    if (args.Length != 5) return false;
-                    return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
                 }
 
                 // 管理员签名
@@ -152,104 +152,6 @@ namespace BrokerContract
                 }
             }
 
-            return true;
-        }
-
-        /***********
-         * Getters *
-         ***********/
-
-        private static byte[] GetState()
-        {
-            return Storage.Get(Context(), "state");
-        }
-
-        private static BigInteger GetBalance(byte[] address, byte[] assetID)
-        {
-            if (address.Length != 20 || assetID.Length != 20) return 0;
-            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
-        }
-
-        private static Offer GetOffer(byte[] offerHash)
-        {           
-            byte[] offerData = Storage.Get(Context(), OfferKey(offerHash));
-            if (offerData.Length == 0) return new Offer();
-
-            return (Offer)offerData.Deserialize();
-        }
-
-        private static byte[] GetFeeAddress()
-        {
-            return Storage.Get(Context(), "feeAddress");
-        }
-
-        private static byte[] GetDealerAddress()
-        {
-            return Storage.Get(Context(), "dealerAddress");
-        }
-
-        private static bool GetIsWhitelisted(byte[] assetID)
-        {
-            if (assetID.Length != 20) return false;
-            if (Storage.Get(Context(), WhitelistKey(assetID)).AsBigInteger() == 1)
-                return true;
-            return false;
-        }
-
-        /***********
-         * Control *
-         ***********/
-
-        private static bool SetState(BigInteger setValue)
-        {
-            if (setValue == 0)
-                Storage.Put(Context(), "state", Active);
-            if (setValue == 1)
-                Storage.Put(Context(), "state", Inactive);
-            if (setValue == 2)
-                Storage.Put(Context(), "state", AllStop);
-            return true;
-        }
-
-        private static bool Initialize(byte[] feeAddress, byte[] dealerAddress)
-        {
-            if (!SetFeeAddress(feeAddress)) throw new Exception("Failed to set fee address");
-            if (!SetDealerAddress(dealerAddress)) throw new Exception("Failed to set the dealer address");
-            Initialized();
-            return true;
-        }
-
-        private static bool SetFeeAddress(byte[] feeAddress)
-        {
-            if (feeAddress.Length != 20) return false;
-            Storage.Put(Context(), "feeAddress", feeAddress);
-            EmitFeeAddressSet(feeAddress);
-            return true;
-        }
-
-        private static bool SetDealerAddress(byte[] dealerAddress)
-        {
-            if (dealerAddress.Length != 20) return false;
-            Storage.Put(Context(), "dealerAddress", dealerAddress);
-            EmitDealerAddressSet(dealerAddress);
-            return true;
-        }
-
-        private static bool AddToWhitelist(byte[] scriptHash)
-        {
-            if (scriptHash.Length != 20) return false;
-            var key = WhitelistKey(scriptHash);
-            Storage.Put(Context(), key, 1);
-            EmitAddedToWhitelist(scriptHash);
-            return true;
-        }
-
-        private static bool RemoveFromWhitelist(byte[] scriptHash)
-        {
-            if (scriptHash.Length != 20) return false;
-            var key = WhitelistKey(scriptHash);
-            Storage.Delete(Context(), key);
-            EmitRemovedFromWhitelist(scriptHash);
             return true;
         }
 
@@ -451,7 +353,7 @@ namespace BrokerContract
             byte[] key = BalanceKey(originator, assetID);
             BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
             Storage.Put(Context(), key, currentBalance + amount);
-            ChangedBalance(originator, assetID, amount, reason);
+            EmitChangedBalance(originator, assetID, amount, reason);
 
             return true;
         }
@@ -469,7 +371,7 @@ namespace BrokerContract
             if (newBalance > 0) Storage.Put(Context(), key, newBalance);
             else Storage.Delete(Context(), key);
 
-            ChangedBalance(address, assetID, 0 - amount, reason);
+            EmitChangedBalance(address, assetID, 0 - amount, reason);
             return true;
         }
 
@@ -483,84 +385,153 @@ namespace BrokerContract
             // Check that the contract is safe
             if (!GetIsWhitelisted(assetId)) return false;
 
-            byte[] spender = ExecutionEngine.ExecutingScriptHash;
+            byte[] to = ExecutionEngine.ExecutingScriptHash;
             bool success = false;
 
             //全局资产 native nep5
             if (isGlobal == 1)
             {
-                success = NativeAsset.Call("TransferFrom", assetId, originator, spender, value);
+                success = NativeAsset.Call("TransferFrom", assetId, originator, to, value);
             }
             if (isGlobal == 0)
             {
-                var args = new object[] { originator, spender, value };
+                var args = new object[] { originator, to, value };
                 var contract = (NEP5Contract)assetId.ToDelegate();
                 success = (bool)contract("transferFrom", args);
             }
             if (success)
             {
                 IncreaseBalance(originator, assetId, value, "deposit");
-                Depositted(originator, assetId, value);
+                EmitDepositted(originator, assetId, value);
                 return true;
             }
             else
                 throw new Exception("Failed to transferFrom");
         }
 
-        private static void SetNep5TxidUsed(byte[] txid)
-        {
-            var key = TxidUsedKey(txid);
-            Storage.Put(Context(), key, 1);
-        }
-
-        private static TransferInfo GetNep5TxInfo(byte[] assetID, byte[] txid)
-        {
-            var tInfo = new TransferInfo();
-            var v = Storage.Get(Context(), TxidUsedKey(txid)).AsBigInteger();
-            if (v == 0)
-            {
-                object[] args = new object[1] { txid };
-                var contract = (NEP5Contract)assetID.ToDelegate();
-                var info = contract("getTxInfo", args);
-                if (((object[])info).Length == 3)
-                    tInfo = info as TransferInfo;
-            }
-            return tInfo;
-        }
-
         /***********
          * Withdrawal *
          ***********/
-        private static bool Withdrawal(byte[] originator, byte[] withdrawaAssetId, BigInteger withdrawaAmount)
+        private static bool Withdrawal(byte[] originator, byte[] assetId, BigInteger amount, BigInteger isGlobal)
         {
             if (!Runtime.CheckWitness(originator)) return false;
 
             if (originator.Length != 20) return false;
 
-            var originatorBalance = GetBalance(originator, withdrawaAssetId);
+            var originatorBalance = GetBalance(originator, assetId);
 
-            if (originatorBalance < withdrawaAmount) return false;
-            
-            //reduce withdrawaAmount
-            ReduceBalance(originator, withdrawaAssetId, withdrawaAmount, "withdrawalReduce");
+            if (originatorBalance < amount) return false;                       
 
-            //transfer
-            if (TransferAppNEP5(ExecutionEngine.ExecutingScriptHash, originator, withdrawaAssetId, withdrawaAmount))
+            bool success = false;
+            byte[] from = ExecutionEngine.ExecutingScriptHash;
+
+            if (isGlobal == 1)
             {
-                EmitWithdrawn(originator, withdrawaAssetId, withdrawaAmount);// (address, assetID, amount)
-                return true;
+                success = NativeAsset.Call("TransferApp", assetId, from, originator, amount);
+            }
+            if (isGlobal == 0)
+            {
+                var args = new object[] { from, originator, amount };
+                var contract = (NEP5Contract)assetId.ToDelegate();
+                success = (bool)contract("transferApp", args);
             }
 
+            if (success)
+            {
+                ReduceBalance(originator, assetId, amount, "withdrawalReduce");
+                EmitWithdrawn(originator, assetId, amount);
+                return true;
+            }
+            else
+                throw new Exception("Failed to withdrawal transfer");
+        }
+
+        /***********
+         * Getters *
+         ***********/
+
+        private static BigInteger GetBalance(byte[] address, byte[] assetID)
+        {
+            if (address.Length != 20 || assetID.Length != 20) return 0;
+            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
+        }
+
+        private static Offer GetOffer(byte[] offerHash)
+        {
+            byte[] offerData = Storage.Get(Context(), OfferKey(offerHash));
+            if (offerData.Length == 0) return new Offer();
+
+            return (Offer)offerData.Deserialize();
+        }
+        private static bool GetIsWhitelisted(byte[] assetID)
+        {
+            if (assetID.Length != 20) return false;
+            if (Storage.Get(Context(), WhitelistKey(assetID)).AsBigInteger() == 1)
+                return true;
             return false;
         }
 
-        private static bool TransferAppNEP5(byte[] from, byte[] to, byte[] assetID, BigInteger amount)
+        private static byte[] GetState() => Storage.Get(Context(), "state");
+
+        private static byte[] GetFeeAddress() => Storage.Get(Context(), "feeAddress");
+
+        private static byte[] GetDealerAddress() => Storage.Get(Context(), "dealerAddress");
+
+        /***********
+         * Control *
+         ***********/
+
+        private static bool SetState(BigInteger setValue)
         {
-            // Transfer token
-            var args = new object[] { from, to, amount };
-            var contract = (NEP5Contract)assetID.ToDelegate();
-            if ((bool)contract("transfer_app", args)) return true;
-            return false;
+            if (setValue == 0)
+                Storage.Put(Context(), "state", Active);
+            if (setValue == 1)
+                Storage.Put(Context(), "state", Inactive);
+            if (setValue == 2)
+                Storage.Put(Context(), "state", AllStop);
+            return true;
+        }
+
+        private static bool Initialize(byte[] feeAddress, byte[] dealerAddress)
+        {
+            if (!SetFeeAddress(feeAddress)) throw new Exception("Failed to set fee address");
+            if (!SetDealerAddress(dealerAddress)) throw new Exception("Failed to set the dealer address");
+            EmitInitialized();
+            return true;
+        }
+
+        private static bool SetFeeAddress(byte[] feeAddress)
+        {
+            if (feeAddress.Length != 20) return false;
+            Storage.Put(Context(), "feeAddress", feeAddress);
+            EmitFeeAddressSet(feeAddress);
+            return true;
+        }
+
+        private static bool SetDealerAddress(byte[] dealerAddress)
+        {
+            if (dealerAddress.Length != 20) return false;
+            Storage.Put(Context(), "dealerAddress", dealerAddress);
+            EmitDealerAddressSet(dealerAddress);
+            return true;
+        }
+
+        private static bool AddToWhitelist(byte[] scriptHash)
+        {
+            if (scriptHash.Length != 20) return false;
+            var key = WhitelistKey(scriptHash);
+            Storage.Put(Context(), key, 1);
+            EmitAddedToWhitelist(scriptHash);
+            return true;
+        }
+
+        private static bool RemoveFromWhitelist(byte[] scriptHash)
+        {
+            if (scriptHash.Length != 20) return false;
+            var key = WhitelistKey(scriptHash);
+            Storage.Delete(Context(), key);
+            EmitRemovedFromWhitelist(scriptHash);
+            return true;
         }
 
         private static StorageContext Context() => Storage.CurrentContext;
@@ -570,7 +541,6 @@ namespace BrokerContract
         private static byte[] OfferKey(byte[] offerHash) => "offers".AsByteArray().Concat(offerHash);
         private static byte[] BalanceKey(byte[] originator, byte[] assetID) => "balance".AsByteArray().Concat(originator).Concat(assetID);
         private static byte[] WhitelistKey(byte[] assetId) => "whiteList".AsByteArray().Concat(assetId);
-        private static byte[] TxidUsedKey(byte[] txid) => "txidUsed".AsByteArray().Concat(txid);
 
         private class Offer
         {
@@ -599,12 +569,6 @@ namespace BrokerContract
             };
         }
 
-        public class TransferInfo
-        {
-            public byte[] from;
-            public byte[] to;
-            public BigInteger value;
-        }
     }
 
 }
