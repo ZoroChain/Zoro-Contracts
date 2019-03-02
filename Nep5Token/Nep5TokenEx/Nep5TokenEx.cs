@@ -34,7 +34,7 @@ namespace BCTContract
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
-                var entryscript = ExecutionEngine.EntryScriptHash;
+                var entryscript = ExecutionEngine.EntryScriptHash;               
 
                 //管理员权限     设置合约状态          
                 if (method == "setState")
@@ -104,26 +104,28 @@ namespace BCTContract
                     if (args.Length != 3) return false;
                     byte[] from = (byte[])args[0];
                     byte[] to = (byte[])args[1];
+
                     if (from.Length != 20 || to.Length != 20) return false;
-                    BigInteger value = (BigInteger)args[2];
 
-                    if (entryscript != callscript) return false;
-
-                    return TransferFrom(from, to, value, callscript);
+                    BigInteger value = (BigInteger)args[2];                   
+                                    
+                    return TransferFrom(from, to, value);
                 }
 
                 if (method == "approve")
                 {
                     if (args.Length != 3) return false;
                     byte[] from = (byte[])args[0];
-                    byte[] spender = (byte[])args[1];
-                    if (from.Length != 20 || spender.Length != 20) return false;
+                    byte[] to = (byte[])args[1];
+
+                    if (from.Length != 20 || to.Length != 20) return false;
+                    if (!Runtime.CheckWitness(from)) return false;
 
                     BigInteger value = (BigInteger)args[2];
 
                     if (entryscript != callscript) return false;          
 
-                    return Approve(from, spender, value);
+                    return Approve(from, to, value);
                 }
 
                 if (method == "transferApp")
@@ -189,44 +191,45 @@ namespace BCTContract
             Storage.Put(Context(), keyTxid, txInfo);
         }
 
-        private static bool Approve(byte[] from, byte[] spender, BigInteger value)
+        private static bool Approve(byte[] from, byte[] to, BigInteger value)
         {
-            if (value <= 0) return false;
-            if (from == spender) return true;
-
-            if (!Runtime.CheckWitness(from)) return false;
+            if (value < 0) return false;
+            if (from == to) return false;                     
 
             BigInteger fromBalance = BalanceOf(from);
             if (fromBalance < value) return false;
 
-            Storage.Put(Context(), AllowanceKey(from, spender), value);
+            if (value == 0)
+                Storage.Delete(Context(), AllowanceKey(from, to));
+            else
+                Storage.Put(Context(), AllowanceKey(from, to), value);
 
-            Approved(from, spender, value);
+            Approved(from, to, value);
             return true;
         }
 
-        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value, byte[] spender)
+        private static bool TransferFrom(byte[] from, byte[] to, BigInteger value)
         {
             if (value <= 0) return false;
-            if (from == to) return true;
+            if (from == to) return false;
 
-            BigInteger approvedTransferAmount = GetAllowance(from, spender);    // how many tokens is this address authorised to transfer
+            BigInteger approvedTransferAmount = GetAllowance(from, to);    // how many tokens is this address authorised to transfer
             BigInteger fromBalance = BalanceOf(from);                   // retrieve balance of authorised account
 
             if (approvedTransferAmount < value || fromBalance < value) return false;
-            BigInteger recipientBalance = BalanceOf(to);
+
+            if (approvedTransferAmount == value)
+                Storage.Delete(Context(), AllowanceKey(from, to));
+            else
+                Storage.Put(Context(), AllowanceKey(from, to), approvedTransferAmount - value);
 
             if (fromBalance == value)
                 Storage.Delete(Context(), AddressKey(from));
             else
                 Storage.Put(Context(), AddressKey(from), fromBalance - value);
 
+            BigInteger recipientBalance = BalanceOf(to);
             Storage.Put(Context(), AddressKey(to), recipientBalance + value);
-
-            if (approvedTransferAmount == value)
-                Storage.Delete(Context(), AllowanceKey(from, spender));
-            else
-                Storage.Put(Context(), AllowanceKey(from, spender), approvedTransferAmount - value);
 
             SetTxInfo(from, to, value);
 
@@ -234,9 +237,9 @@ namespace BCTContract
             return true;
         }
 
-        private static BigInteger GetAllowance(byte[] from, byte[] spender)
+        private static BigInteger GetAllowance(byte[] from, byte[] to)
         {
-            byte[] key = AllowanceKey(from, spender);
+            byte[] key = AllowanceKey(from, to);
             return Storage.Get(Context(), key).AsBigInteger();
         }
 
@@ -265,7 +268,7 @@ namespace BCTContract
 
         private static byte[] AddressKey(byte[] address) => new byte[] { 0x11 }.Concat(address);
         private static byte[] TxidKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
-        private static byte[] AllowanceKey(byte[] from, byte[] spender) => from.Concat(spender);
+        private static byte[] AllowanceKey(byte[] from, byte[] to) => from.Concat(to);
     }
 
     public class TransferInfo

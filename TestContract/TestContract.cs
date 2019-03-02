@@ -70,16 +70,38 @@ namespace TestContract
                     byte[] asset_id = (byte[])args[0];
                     byte[] from = (byte[])args[1];
                     byte[] to = (byte[])args[2];
-                    BigInteger value = (BigInteger)args[3];
 
-                    byte[] spender = ExecutionEngine.ExecutingScriptHash;
+                    BigInteger value = (BigInteger)args[3];
 
                     var para = new object[3] { from, to, value };
                     deleCall contract = (deleCall)asset_id.ToDelegate();
-                    contract("transferFrom", para);
+                    var aa = (bool)contract("transferFrom", para);
 
-                    Runtime.Notify(spender, value, from, to);
+                    Runtime.Notify(1, aa);
 
+                    var par = new object[2] { from, to };
+                    BigInteger ba = (BigInteger)contract("allowance", par);
+                    
+                    Runtime.Notify(1, ba);
+
+                }
+
+                if (method == "transferFrom1")
+                {
+                    byte[] asset_id = (byte[])args[0];
+                    byte[] from = (byte[])args[1];
+                    byte[] to = (byte[])args[2];
+
+                    BigInteger value = (BigInteger)args[3];
+
+                    var success = NativeAsset.Call("TransferFrom", asset_id, from, to, value);
+                                      
+                    Runtime.Notify(1, success);
+
+                    var par = new object[3] { asset_id, from, to };
+                    BigInteger ba = NativeAsset.Call("Allowance", par).AsBigInteger();
+
+                    Runtime.Notify(1, ba);
 
                 }
 
@@ -93,9 +115,9 @@ namespace TestContract
 
                     var para = new object[3] { from, to, value };
                     var contract = (deleCall)asset_id.ToDelegate();
-                    contract("transferApp", para);
+                    var aa = (bool)contract("transferApp", para);
                     Runtime.Notify(from, to, value);
-
+                    Runtime.Notify(1, aa);
 
                 }
 
