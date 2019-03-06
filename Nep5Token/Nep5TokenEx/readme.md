@@ -12,5 +12,5 @@ Zoro Nep5Ex 是 Zoro 上发布代币资产的参考标准，其在保留了 NEO 
 * allowance：查询 approve 的 allowance
 * transfer：正常交易，参数：from，to，value，需要 from 签名
 * transferApp：合约的转账交易，只允许其他合约调用并且 from 是调用合约
-* approve：设置 approve 的限额，设置可以从 from 转出到 to 的最大数额，参数：from，to，value，需要 from 签名
-* transferFrom：approve 后的交易
+* approve：设置可以从 from 转出到 to 的数额，参数：from，to，value，需要 from 签名
+* transferFrom：approve 后的转账交易

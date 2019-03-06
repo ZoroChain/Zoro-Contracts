@@ -25,7 +25,7 @@ namespace BCTContract
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
         private const ulong factor = 100000000;//精度
-        private const ulong oneHundredMillion = 100000000; //一亿
+        private const ulong oneHundredMillion = 100000000 * 10; //一亿
         private const ulong totalCoin = 1 * oneHundredMillion * factor;//总量
 
         public static object Main(string method, object[] args)
@@ -99,19 +99,7 @@ namespace BCTContract
                     return Transfer(from, to, value);
                 }
 
-                if (method == "transferFrom")
-                {
-                    if (args.Length != 3) return false;
-                    byte[] from = (byte[])args[0];
-                    byte[] to = (byte[])args[1];
-
-                    if (from.Length != 20 || to.Length != 20) return false;
-
-                    BigInteger value = (BigInteger)args[2];                   
-                                    
-                    return TransferFrom(from, to, value);
-                }
-
+                //授权给 to 一定数量的 token
                 if (method == "approve")
                 {
                     if (args.Length != 3) return false;
@@ -123,9 +111,23 @@ namespace BCTContract
 
                     BigInteger value = (BigInteger)args[2];
 
-                    if (entryscript != callscript) return false;          
+                    if (entryscript != callscript) return false;
 
                     return Approve(from, to, value);
+                }
+
+                //转走授权给 to 的 token
+                if (method == "transferFrom")
+                {
+                    if (args.Length != 3) return false;
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+
+                    if (from.Length != 20 || to.Length != 20) return false;
+
+                    BigInteger value = (BigInteger)args[2];                   
+                                    
+                    return TransferFrom(from, to, value);
                 }
 
                 if (method == "transferApp")
@@ -145,9 +147,9 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "TestCoin1";//名称
+        public static string Name() => "TestCoin3";//名称
 
-        public static string Symbol() => "TC1";//简称
+        public static string Symbol() => "TC3";//简称
 
         public static byte Decimals() => 8;//精度
 

@@ -13,21 +13,21 @@ namespace BrokerContract
 
         // Events
         [DisplayName("makeOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCreated; // (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger,byte[], BigInteger> EmitCreated; // (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetId, feeAmount)
 
         [DisplayName("fillOffer")]
-        public static event Action<byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger, BigInteger> EmitFilled; // (address, offerHash, fillAmount, offerAssetID, offerAmount, wantAssetID, wantAmount, amountFillerGet)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount)
 
         [DisplayName("cancelOffer")]
-        public static event Action<byte[], byte[], BigInteger> EmitCancelled; // (address, offerHash, feeReturnAmount)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCancelled; // (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
 
-        [DisplayName("balanceChanged")]
-        public static event Action<byte[], byte[], BigInteger, string> EmitChangedBalance; // (address, assetID, amount, reason)
+        //[DisplayName("changeBalance")]
+        //public static event Action<byte[], byte[], BigInteger, string> EmitChangedBalance; // (address, assetID, amount, reason)
 
-        [DisplayName("depositted")]
+        [DisplayName("deposit")]
         public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
 
-        [DisplayName("withdrawn")]
+        [DisplayName("withdraw")]
         public static event Action<byte[], byte[], BigInteger> EmitWithdrawn; // (address, assetID, amount)
 
         [DisplayName("addedToWhitelist")]
@@ -55,8 +55,8 @@ namespace BrokerContract
 
         /// <summary>
         ///  BlaCat Token Exchange Contract
-        ///   Parameter List: 0710
-        ///   Return List: 05
+        ///  Parameter List: 0710
+        ///  Return List: 05
         /// </summary>
         /// <param name="operation">
         /// </param>
@@ -106,10 +106,10 @@ namespace BrokerContract
                     return MakeOffer(offer);
                 }
                 //撮合成交
-                if (operation == "fillOffer") // fillerAddress, offerHash, fillAmount, takerFeeAssetID, takerFeeAmount)
+                if (operation == "fillOffer") // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount)
                 {
-                    if (args.Length != 5) return false;
-                    return FillOffer((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (byte[])args[3], (BigInteger)args[4]);
+                    if (args.Length != 6) return false;
+                    return FillOffer((byte[])args[0], (byte[])args[1],(byte[])args[2], (BigInteger)args[3], (byte[])args[4], (BigInteger)args[5]);
                 }
                 //取消挂单
                 if (operation == "cancelOffer") // (offerHash)
@@ -119,11 +119,8 @@ namespace BrokerContract
                 }
 
                 // 管理员签名
-                if (!Runtime.CheckWitness(superAdmin))
-                {
-                    Runtime.Log("Owner signature verification failed");
-                    return false;
-                }
+                if (!Runtime.CheckWitness(superAdmin)) return false;
+                
                 // == Init == 设置交易费收取地址,设置交易员
                 if (operation == "initialize")
                 {
@@ -185,41 +182,30 @@ namespace BrokerContract
             byte[] feeAddress = Storage.Get(Context(), "feeAddress");
             if (feeAddress.Length != 20) return false;
 
-            bool deductFeesSeparately = offer.FeeAeestId != offer.OfferAssetID;
+            // Check that there is enough balance in native fees if using native fees
+            if (GetBalance(offer.MakerAddress, offer.FeeAeestId) < offer.FeeAmount) throw new Exception("Invalid available balance!");
+            // Reduce fee
+            ReduceBalance(offer.MakerAddress, offer.FeeAeestId, offer.FeeAmount);
 
-            //单独扣手续费
-            if (deductFeesSeparately)
-            {
-                // Check that there is enough balance in native fees if using native fees
-                if (GetBalance(offer.MakerAddress, offer.FeeAeestId) < offer.FeeAmount) return false;
-                // Reduce fee
-                ReduceBalance(offer.MakerAddress, offer.FeeAeestId, offer.FeeAmount, "makeOfferFeeReduce");
-            }
-
+            if (GetBalance(offer.MakerAddress, offer.OfferAssetID) < offer.OfferAmount) throw new Exception("Invalid available balance!");
             // Reduce available balance for the offered asset and amount
-            ReduceBalance(offer.MakerAddress, offer.OfferAssetID, offer.OfferAmount, "makeOfferReduce");
+            ReduceBalance(offer.MakerAddress, offer.OfferAssetID, offer.OfferAmount);
 
             //add fee
-            IncreaseBalance(feeAddress, offer.FeeAeestId, offer.FeeAmount, "makeOfferFeeAdd");
-
-            if (!deductFeesSeparately)
-            {
-                offer.OfferAmount -= offer.FeeAmount;
-                offer.AvailableAmount -= offer.FeeAmount;
-            }
+            IncreaseBalance(feeAddress, offer.FeeAeestId, offer.FeeAmount);
 
             // Add the offer to storage
             StoreOffer(offerHash, offer);
 
-            // Notify clients
-            EmitCreated(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.OfferAmount, offer.WantAssetID, offer.WantAmount);
+            // Notify (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetId, feeAmount)
+            EmitCreated(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.OfferAmount, offer.WantAssetID, offer.WantAmount, offer.FeeAeestId, offer.FeeAmount);
             return true;
         }
 
         // Fills an offer by taking the amount you want
-        // => amountToFill's asset type = offer's wantAssetID
-        // amountToTake's asset type = offerAssetID (taker is taking what is offered)
-        private static bool FillOffer(byte[] fillerAddress, byte[] offerHash, BigInteger fillAmount, byte[] takerFeeAssetID, BigInteger takerFeeAmount)
+        // => fillAmount's asset type = offer's wantAssetID
+        // getAmount's asset type = offerAssetID (taker is taking what is offered)
+        private static bool FillOffer(byte[] fillerAddress, byte[] offerHash, byte[] fillAssetId, BigInteger fillAmount, byte[] fillFeeAssetID, BigInteger fillFeeAmount)
         {
             var dealerAddress = GetDealerAddress();
 
@@ -227,65 +213,41 @@ namespace BrokerContract
             if (dealerAddress == fillerAddress) return false;
 
             // Check fees
-            if (takerFeeAssetID.Length != 20) return false;
-            if (takerFeeAmount < 0) return false;
+            if (fillFeeAssetID.Length != 20) return false;
+            if (fillFeeAmount < 0) return false;
             byte[] feeAddress = Storage.Get(Context(), "feeAddress");
             if (feeAddress.Length != 20) return false;
 
             Offer offer = GetOffer(offerHash);
-            if (offer.MakerAddress.Length == 0) return false;
-            
+            if (offer.MakerAddress.Length == 0) return false;            
             if (fillerAddress == offer.MakerAddress) return false;
+            if (offer.WantAssetID != fillAssetId) return false;
 
-            if (fillAmount < 1) return false;
-
-            var fillerBalance = GetBalance(fillerAddress, offer.WantAssetID);
-
-            if (fillerBalance < fillAmount) return false;
-
-            if (GetBalance(fillerAddress, takerFeeAssetID) < takerFeeAmount) return false;
-            
-            // 如果 takerFeeAssetID != offer.OfferAssetID，交易费需要单独扣
-            bool deductFeesSeparately = takerFeeAssetID != offer.WantAssetID;
+            if (fillAmount < 1) return false;              
 
             //filler 可以买到的数量
-            BigInteger amountFillerGet = 0;
-            // Calculate amount we have to give the filler, fillAmount * (offer.OfferAmount / offer.WantAmount)
-            if (deductFeesSeparately)
-            {
-                amountFillerGet = (fillAmount * offer.OfferAmount) / offer.WantAmount;
-            }
-            else
-            {
-                amountFillerGet = ((fillAmount - takerFeeAmount) * offer.OfferAmount) / offer.WantAmount;
-            }
-
+            BigInteger amountFillerGet = (fillAmount * offer.OfferAmount) / offer.WantAmount;
+            
             if (amountFillerGet < 1) return false;
 
             // Check that you cannot take more than available
             if (amountFillerGet > offer.AvailableAmount) return false;
-            
-            if (deductFeesSeparately)
-            {
-                // Reduce fees here separately as it is a different asset type
-                ReduceBalance(fillerAddress, takerFeeAssetID, takerFeeAmount, "fillOfferFeeReduce");
-                //add offer.MakerAddress amount
-                IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount, "fillOfferAdd");
-            }
-            else
-            {
-                //add offer.MakerAddress amount
-                IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount - takerFeeAmount, "fillOfferAdd");
-            }
 
-            // Reduce balance from filler
-            ReduceBalance(fillerAddress, offer.WantAssetID, fillAmount, "fillOfferReduce");
-
+            if (GetBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) throw new Exception("Invalid available balance!");
+            // Reduce fees
+            ReduceBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
             //add fee
-            IncreaseBalance(feeAddress, takerFeeAssetID, takerFeeAmount, "fillOfferFeeAdd");
+            IncreaseBalance(feeAddress, fillFeeAssetID, fillFeeAmount);
+
+            var fillerBalance = GetBalance(fillerAddress, offer.WantAssetID);
+            if (fillerBalance < fillAmount) throw new Exception("Invalid available balance!");
+            // Reduce balance from filler
+            ReduceBalance(fillerAddress, offer.WantAssetID, fillAmount);
+            //add offer.MakerAddress amount
+            IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);
 
             //add fillerAddress amount
-            IncreaseBalance(fillerAddress, offer.OfferAssetID, amountFillerGet, "fillOfferAdd");
+            IncreaseBalance(fillerAddress, offer.OfferAssetID, amountFillerGet);
 
             // Update available amount
             offer.AvailableAmount = offer.AvailableAmount - amountFillerGet;
@@ -293,9 +255,8 @@ namespace BrokerContract
             // Store updated offer
             StoreOffer(offerHash, offer);
 
-            // Notify clients
-            // (address, offerHash, fillAmount, offerAssetID, offerAmount, wantAssetID, wantAmount, amountFillerGet)
-            EmitFilled(fillerAddress, offerHash, fillAmount, offer.OfferAssetID, offer.OfferAmount, offer.WantAssetID, offer.WantAmount, amountFillerGet);
+            // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount)
+            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.OfferAssetID, amountFillerGet, fillFeeAssetID, fillFeeAmount);
 
             return true;
         }
@@ -319,19 +280,19 @@ namespace BrokerContract
             if (feeAddressBalance < feeReturnAmount) return false;
 
             //add fee to MakerAddress
-            IncreaseBalance(offer.MakerAddress, offer.FeeAeestId, feeReturnAmount, "cancelOfferFeeAdd");
+            IncreaseBalance(offer.MakerAddress, offer.FeeAeestId, feeReturnAmount);
 
             //reduce fee from feeAddress
-            ReduceBalance(feeAddress, offer.FeeAeestId, feeReturnAmount, "cancelOfferFeeReduce");
+            ReduceBalance(feeAddress, offer.FeeAeestId, feeReturnAmount);
 
             // Move funds to maker address
-            IncreaseBalance(offer.MakerAddress, offer.OfferAssetID, offer.AvailableAmount, "cancelOfferAdd");
+            IncreaseBalance(offer.MakerAddress, offer.OfferAssetID, offer.AvailableAmount);
 
             // Remove offer
             Storage.Delete(Context(), OfferKey(offerHash));
 
-            // Notify runtime
-            EmitCancelled(offer.MakerAddress, offerHash, feeReturnAmount);
+            // Notify (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
+            EmitCancelled(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.AvailableAmount, offer.FeeAeestId, feeReturnAmount);
             return true;
         }
 
@@ -346,19 +307,19 @@ namespace BrokerContract
             }
         }
 
-        private static bool IncreaseBalance(byte[] originator, byte[] assetID, BigInteger amount, string reason)
+        private static bool IncreaseBalance(byte[] originator, byte[] assetID, BigInteger amount)
         {
             if (amount < 1) throw new ArgumentOutOfRangeException();
 
             byte[] key = BalanceKey(originator, assetID);
             BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
             Storage.Put(Context(), key, currentBalance + amount);
-            EmitChangedBalance(originator, assetID, amount, reason);
+            //EmitChangedBalance(originator, assetID, amount, reason);
 
             return true;
         }
 
-        private static bool ReduceBalance(byte[] address, byte[] assetID, BigInteger amount, string reason)
+        private static bool ReduceBalance(byte[] address, byte[] assetID, BigInteger amount)
         {
             if (amount < 1) throw new ArgumentOutOfRangeException();
 
@@ -366,12 +327,12 @@ namespace BrokerContract
             var currentBalance = Storage.Get(Context(), key).AsBigInteger();
             var newBalance = currentBalance - amount;
 
-            if (newBalance < 0) return false;
+            if (newBalance < 0) throw new Exception("Invalid available balance!");
 
             if (newBalance > 0) Storage.Put(Context(), key, newBalance);
             else Storage.Delete(Context(), key);
 
-            EmitChangedBalance(address, assetID, 0 - amount, reason);
+            //EmitChangedBalance(address, assetID, 0 - amount, reason);
             return true;
         }
 
@@ -401,7 +362,7 @@ namespace BrokerContract
             }
             if (success)
             {
-                IncreaseBalance(originator, assetId, value, "deposit");
+                IncreaseBalance(originator, assetId, value);
                 EmitDepositted(originator, assetId, value);
                 return true;
             }
@@ -438,7 +399,7 @@ namespace BrokerContract
 
             if (success)
             {
-                ReduceBalance(originator, assetId, amount, "withdrawalReduce");
+                ReduceBalance(originator, assetId, amount);
                 EmitWithdrawn(originator, assetId, amount);
                 return true;
             }
