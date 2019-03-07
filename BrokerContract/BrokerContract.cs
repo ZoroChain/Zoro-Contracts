@@ -267,7 +267,7 @@ namespace BrokerContract
             Offer offer = GetOffer(offerHash);
             if (offer.MakerAddress == new byte[] { }) return false;
 
-            if (!(Runtime.CheckWitness(offer.MakerAddress))) return false;
+            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;
 
             //按比例计算剩余的交易费
             var feeReturnAmount = (offer.AvailableAmount * offer.FeeAmount) / offer.OfferAmount;
@@ -319,11 +319,40 @@ namespace BrokerContract
             return true;
         }
 
+        private static bool IncreaseAvailableBalance(byte[] originator, byte[] assetID, BigInteger amount)
+        {
+            if (amount < 1) throw new ArgumentOutOfRangeException();
+
+            byte[] key = AvailableBalanceKey(originator, assetID);
+            BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
+            Storage.Put(Context(), key, currentBalance + amount);
+            //EmitChangedBalance(originator, assetID, amount, reason);
+
+            return true;
+        }
+
         private static bool ReduceBalance(byte[] address, byte[] assetID, BigInteger amount)
         {
             if (amount < 1) throw new ArgumentOutOfRangeException();
 
             var key = BalanceKey(address, assetID);
+            var currentBalance = Storage.Get(Context(), key).AsBigInteger();
+            var newBalance = currentBalance - amount;
+
+            if (newBalance < 0) throw new Exception("Invalid available balance!");
+
+            if (newBalance > 0) Storage.Put(Context(), key, newBalance);
+            else Storage.Delete(Context(), key);
+
+            //EmitChangedBalance(address, assetID, 0 - amount, reason);
+            return true;
+        }
+
+        private static bool ReduceAvailabelBalance(byte[] address, byte[] assetID, BigInteger amount)
+        {
+            if (amount < 1) throw new ArgumentOutOfRangeException();
+
+            var key = AvailableBalanceKey(address, assetID);
             var currentBalance = Storage.Get(Context(), key).AsBigInteger();
             var newBalance = currentBalance - amount;
 
@@ -414,7 +443,7 @@ namespace BrokerContract
         private static BigInteger GetBalance(byte[] address, byte[] assetID)
         {
             if (address.Length != 20 || assetID.Length != 20) return 0;
-            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
+            return Storage.Get(Context(), AvailableBalanceKey(address, assetID)).AsBigInteger();
         }
 
         private static Offer GetOffer(byte[] offerHash)
@@ -500,6 +529,7 @@ namespace BrokerContract
 
         // Keys
         private static byte[] OfferKey(byte[] offerHash) => "offers".AsByteArray().Concat(offerHash);
+        private static byte[] AvailableBalanceKey(byte[] originator, byte[] assetID) => "availableBalance".AsByteArray().Concat(originator).Concat(assetID);
         private static byte[] BalanceKey(byte[] originator, byte[] assetID) => "balance".AsByteArray().Concat(originator).Concat(assetID);
         private static byte[] WhitelistKey(byte[] assetId) => "whiteList".AsByteArray().Concat(assetId);
 
