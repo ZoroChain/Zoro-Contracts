@@ -80,6 +80,7 @@ namespace BrokerContract
                 // == Getters ==
                 if (operation == "getOffer") return GetOffer((byte[])args[0]); //offerHash
                 if (operation == "getBalance") return GetBalance((byte[])args[0], (byte[])args[1]); //address, assetID
+                if (operation == "getAvailabelBalance") return GetAvailabelBalance((byte[])args[0], (byte[])args[1]); //address, assetID
                 if (operation == "getIsWhitelisted") return GetIsWhitelisted((byte[])args[0]);  // (assetID)
                 if (operation == "getFeeAddress") return GetFeeAddress(); //收交易费账户
                 if (operation == "getDealerAddress") return GetDealerAddress();
@@ -101,14 +102,25 @@ namespace BrokerContract
                 //挂单
                 if (operation == "makeOffer") // (makerAddress, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetID, feeAmount)
                 {
-                    if (args.Length != 7) return false;
+                    if (args.Length != 8) return false;
+
+                    BigInteger time = (BigInteger)args[7];
+                    BigInteger curTime = Runtime.Time;
+                    if (curTime - time > 300) return false;
+
                     var offer = NewOffer((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (byte[])args[3], (BigInteger)args[4], (byte[])args[5], (BigInteger)args[6]);
+                    
                     return MakeOffer(offer);
                 }
                 //撮合成交
                 if (operation == "fillOffer") // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount)
                 {
-                    if (args.Length != 6) return false;
+                    if (args.Length != 7) return false;
+
+                    BigInteger time = (BigInteger)args[6];
+                    BigInteger curTime = Runtime.Time;                    
+                    if (curTime - time > 300) return false;
+
                     return FillOffer((byte[])args[0], (byte[])args[1],(byte[])args[2], (BigInteger)args[3], (byte[])args[4], (BigInteger)args[5]);
                 }
                 //取消挂单
@@ -183,16 +195,13 @@ namespace BrokerContract
             if (feeAddress.Length != 20) return false;
 
             // Check that there is enough balance in native fees if using native fees
-            if (GetBalance(offer.MakerAddress, offer.FeeAeestId) < offer.FeeAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(offer.MakerAddress, offer.FeeAeestId) < offer.FeeAmount) throw new Exception("Invalid available balance!");
             // Reduce fee
-            ReduceBalance(offer.MakerAddress, offer.FeeAeestId, offer.FeeAmount);
+            ReduceAvailabelBalance(offer.MakerAddress, offer.FeeAeestId, offer.FeeAmount);
 
-            if (GetBalance(offer.MakerAddress, offer.OfferAssetID) < offer.OfferAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(offer.MakerAddress, offer.OfferAssetID) < offer.OfferAmount) throw new Exception("Invalid available balance!");
             // Reduce available balance for the offered asset and amount
-            ReduceBalance(offer.MakerAddress, offer.OfferAssetID, offer.OfferAmount);
-
-            //add fee
-            IncreaseBalance(feeAddress, offer.FeeAeestId, offer.FeeAmount);
+            ReduceAvailabelBalance(offer.MakerAddress, offer.OfferAssetID, offer.OfferAmount);
 
             // Add the offer to storage
             StoreOffer(offerHash, offer);
@@ -233,21 +242,31 @@ namespace BrokerContract
             // Check that you cannot take more than available
             if (amountFillerGet > offer.AvailableAmount) return false;
 
-            if (GetBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) throw new Exception("Invalid available balance!");
             // Reduce fees
             ReduceBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
+            ReduceAvailabelBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
             //add fee
             IncreaseBalance(feeAddress, fillFeeAssetID, fillFeeAmount);
 
-            var fillerBalance = GetBalance(fillerAddress, offer.WantAssetID);
+            var fillerBalance = GetAvailabelBalance(fillerAddress, offer.WantAssetID);
             if (fillerBalance < fillAmount) throw new Exception("Invalid available balance!");
             // Reduce balance from filler
             ReduceBalance(fillerAddress, offer.WantAssetID, fillAmount);
+            ReduceAvailabelBalance(fillerAddress, offer.WantAssetID, fillAmount);
+
+            //reduce offer.MakerAddress amount
+            ReduceBalance(offer.MakerAddress, offer.OfferAssetID, amountFillerGet);
+            BigInteger feeAmount = (amountFillerGet * offer.FeeAmount) / offer.OfferAmount;
+            ReduceBalance(offer.MakerAddress, offer.FeeAeestId, feeAmount);
+
             //add offer.MakerAddress amount
-            IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);
+            IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);            
+            IncreaseAvailableBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);
 
             //add fillerAddress amount
             IncreaseBalance(fillerAddress, offer.OfferAssetID, amountFillerGet);
+            IncreaseAvailableBalance(fillerAddress, offer.OfferAssetID, amountFillerGet);
 
             // Update available amount
             offer.AvailableAmount = offer.AvailableAmount - amountFillerGet;
@@ -280,13 +299,10 @@ namespace BrokerContract
             if (feeAddressBalance < feeReturnAmount) return false;
 
             //add fee to MakerAddress
-            IncreaseBalance(offer.MakerAddress, offer.FeeAeestId, feeReturnAmount);
-
-            //reduce fee from feeAddress
-            ReduceBalance(feeAddress, offer.FeeAeestId, feeReturnAmount);
+            IncreaseAvailableBalance(offer.MakerAddress, offer.FeeAeestId, feeReturnAmount);
 
             // Move funds to maker address
-            IncreaseBalance(offer.MakerAddress, offer.OfferAssetID, offer.AvailableAmount);
+            IncreaseAvailableBalance(offer.MakerAddress, offer.OfferAssetID, offer.AvailableAmount);
 
             // Remove offer
             Storage.Delete(Context(), OfferKey(offerHash));
@@ -392,6 +408,9 @@ namespace BrokerContract
             if (success)
             {
                 IncreaseBalance(originator, assetId, value);
+
+                IncreaseAvailableBalance(originator, assetId, value);
+
                 EmitDepositted(originator, assetId, value);
                 return true;
             }
@@ -429,6 +448,9 @@ namespace BrokerContract
             if (success)
             {
                 ReduceBalance(originator, assetId, amount);
+
+                ReduceAvailabelBalance(originator, assetId, amount);
+
                 EmitWithdrawn(originator, assetId, amount);
                 return true;
             }
@@ -443,7 +465,13 @@ namespace BrokerContract
         private static BigInteger GetBalance(byte[] address, byte[] assetID)
         {
             if (address.Length != 20 || assetID.Length != 20) return 0;
-            return Storage.Get(Context(), AvailableBalanceKey(address, assetID)).AsBigInteger();
+            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
+        }
+
+        private static BigInteger GetAvailabelBalance(byte[] address, byte[] assetID)
+        {
+            if (address.Length != 20 || assetID.Length != 20) return 0;
+            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
         }
 
         private static Offer GetOffer(byte[] offerHash)
