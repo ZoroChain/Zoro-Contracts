@@ -41,41 +41,23 @@ namespace NFTContract
                 var entryscript = ExecutionEngine.EntryScriptHash;
                 var callscript = ExecutionEngine.CallingScriptHash;
 
-                //set contract state        
-                if (method == "setState")
-                {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    BigInteger setValue = (BigInteger)args[0];
-                    if (setValue == 0)
-                        Storage.Put(Context(), "state", Active);
-                    if (setValue == 1)
-                        Storage.Put(Context(), "state", Inactive);
-                    if (setValue == 2)
-                        Storage.Put(Context(), "state", AllStop);
-                    return true;
-                }
-
-                if (method == "getState") return GetState();
-
-                //all stop
-                if (GetState() == AllStop) return false;
-
                 //invoke
-                if (method == "totalSupply") return Storage.Get(Context(), totalSupplyKey).AsBigInteger();
                 if (method == "name") return "NFT";
                 if (method == "symbol") return "NFT Test";
+                if (method == "totalSupply") return Storage.Get(Context(), totalSupplyKey).AsBigInteger();
                 if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
                 if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));
-                if (method == "getNftData") return Storage.Get(Context(), NftInfoKey((byte[])args[0]));
-                if (method == "getNftOwner") return Storage.Get(Context(), NftIdKey((byte[])args[0]));
-
-                if (GetState() != Active) return false;
+                if (method == "getNftData") return Storage.Get(Context(), NftDataKey((byte[])args[0]));
+                if (method == "getNftOwner") return Storage.Get(Context(), NftOwnerKey((byte[])args[0]));
+                if (method == "balanceOf") return Storage.Get(Context(), OwnerNftCountKey((byte[])args[0]));
 
                 if (method == "mintNFT") //(address)
                 {
                     if (args.Length != 2) return false;
                     var address = (byte[])args[0];
                     var data = (byte[])args[1];
+                    if (address.Length != 20 || data.Length == 0) return false;
+                    if (Runtime.CheckWitness(superAdmin) == false) return false;
                     return MintNFT(address, data);
                 }
 
@@ -129,7 +111,6 @@ namespace NFTContract
                     if (from != callscript) return false;
                     return Transfer(from, to, nftId);
                 }
-
             }
 
             return false;
@@ -139,10 +120,15 @@ namespace NFTContract
         {
             if (from == to) return true;
 
-            var owner = Storage.Get(Context(), NftIdKey(nftId));
+            var owner = Storage.Get(Context(), NftOwnerKey(nftId));
             if (owner.AsBigInteger() != from.AsBigInteger()) return false;
 
-            Storage.Put(Context(), NftIdKey(nftId), to);
+            Storage.Put(Context(), NftOwnerKey(nftId), to);
+
+            var formBalance = Storage.Get(Context(), OwnerNftCountKey(from)).AsBigInteger();
+            Storage.Put(Context(), OwnerNftCountKey(from), formBalance - 1);
+            var toBalance = Storage.Get(Context(), OwnerNftCountKey(to)).AsBigInteger();
+            Storage.Put(Context(), OwnerNftCountKey(to), toBalance + 1);
 
             SetTxInfo(from, to, nftId);
 
@@ -155,13 +141,18 @@ namespace NFTContract
         {
             if (from == to) return true;
 
-            var owner = Storage.Get(Context(), NftIdKey(nftId));
+            var owner = Storage.Get(Context(), NftOwnerKey(nftId));
             if (owner.AsBigInteger() != from.AsBigInteger()) return false;
 
             var allowanceSpend = Storage.Get(Context(), AllowanceKey(nftId));
             if (allowanceSpend != from.Concat(to)) return false;
 
-            Storage.Put(Context(), NftIdKey(nftId), to);
+            Storage.Put(Context(), NftOwnerKey(nftId), to);
+
+            var formBalance = Storage.Get(Context(), OwnerNftCountKey(from)).AsBigInteger();
+            Storage.Put(Context(), OwnerNftCountKey(from), formBalance - 1);
+            var toBalance = Storage.Get(Context(), OwnerNftCountKey(to)).AsBigInteger();
+            Storage.Put(Context(), OwnerNftCountKey(to), toBalance + 1);
 
             SetTxInfo(from, to, nftId);
 
@@ -174,7 +165,7 @@ namespace NFTContract
         {
             if (from == to) return true;
 
-            var owner = Storage.Get(Context(), NftIdKey(nftId));
+            var owner = Storage.Get(Context(), NftOwnerKey(nftId));
             if (owner.AsBigInteger() != from.AsBigInteger()) return false;
 
             Storage.Put(Context(), AllowanceKey(nftId), from.Concat(to));
@@ -185,20 +176,22 @@ namespace NFTContract
         }
 
         private static bool MintNFT(byte[] address, byte[] data)
-        {
-            if (Runtime.CheckWitness(superAdmin) == false) return false;
+        {            
             if (data.Length > 2048) return false;
+            var nftId = Hash256(data);
 
-            var nftId = Sha256(data);
-            var owner = Storage.Get(Context(), NftIdKey(nftId));
+            var owner = Storage.Get(Context(), NftOwnerKey(nftId));
             if (owner.Length > 0) return false;
 
-            BigInteger totalSupply = Storage.Get(Context(), totalSupplyKey).AsBigInteger();
+            Storage.Put(Context(), NftOwnerKey(nftId), address);
+            Storage.Put(Context(), NftDataKey(nftId), data);
 
-            Storage.Put(Context(), NftIdKey(nftId), address);
-            Storage.Put(Context(), NftInfoKey(nftId), data);
+            var balance = Storage.Get(Context(), OwnerNftCountKey(address)).AsBigInteger();
+            Storage.Put(Context(), OwnerNftCountKey(address), balance + 1);
+            BigInteger totalSupply = Storage.Get(Context(), totalSupplyKey).AsBigInteger();
             Storage.Put(Context(), totalSupplyKey, totalSupply + 1);
 
+            //notify
             Transferred(null, address, nftId);
             return true;
         }
@@ -222,14 +215,12 @@ namespace NFTContract
             return Helper.Deserialize(v) as TransferInfo;
         }
 
-        private static byte[] GetState() => Storage.Get(Context(), "state");
-
         private static StorageContext Context() => Storage.CurrentContext;
-        private static byte[] NftIdKey(byte[] nftId) => new byte[] { 0x11 }.Concat(nftId);
-        private static byte[] NftInfoKey(byte[] nftId) => new byte[] { 0x12 }.Concat(nftId);
+        private static byte[] NftOwnerKey(byte[] nftId) => new byte[] { 0x10 }.Concat(nftId);
+        private static byte[] OwnerNftCountKey(byte[] address) => new byte[] { 0x11 }.Concat(address);
+        private static byte[] NftDataKey(byte[] nftId) => new byte[] { 0x12 }.Concat(nftId);
         private static byte[] TxidKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
         private static byte[] AllowanceKey(byte[] nftId) => new byte[] { 0x14 }.Concat(nftId);
-
     }
 
     public class TransferInfo

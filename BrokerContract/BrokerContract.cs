@@ -427,7 +427,7 @@ namespace BrokerContract
 
             if (originator.Length != 20) return false;
 
-            var originatorBalance = GetBalance(originator, assetId);
+            var originatorBalance = GetAvailabelBalance(originator, assetId);
 
             if (originatorBalance < amount) return false;                       
 
@@ -471,7 +471,7 @@ namespace BrokerContract
         private static BigInteger GetAvailabelBalance(byte[] address, byte[] assetID)
         {
             if (address.Length != 20 || assetID.Length != 20) return 0;
-            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
+            return Storage.Get(Context(), AvailableBalanceKey(address, assetID)).AsBigInteger();
         }
 
         private static Offer GetOffer(byte[] offerHash)
@@ -553,7 +553,6 @@ namespace BrokerContract
         }
 
         private static StorageContext Context() => Storage.CurrentContext;
-        private static BigInteger AmountToOffer(Offer o, BigInteger amount) => (o.OfferAmount * amount) / o.WantAmount;
 
         // Keys
         private static byte[] OfferKey(byte[] offerHash) => "offers".AsByteArray().Concat(offerHash);
