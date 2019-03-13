@@ -113,7 +113,7 @@ namespace BrokerContract
                     return MakeOffer(offer);
                 }
                 //撮合成交
-                if (operation == "fillOffer") // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount)
+                if (operation == "fillOffer") // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount
                 {
                     if (args.Length != 7) return false;
 
@@ -316,6 +316,8 @@ namespace BrokerContract
         {
             if (offer.AvailableAmount < 0)
                 throw new Exception("Invalid offer available amount!");
+            else if (offer.AvailableAmount == 0)
+                Storage.Delete(Context(), OfferKey(offerHash));
             else
             {
                 var offerData = offer.Serialize();
