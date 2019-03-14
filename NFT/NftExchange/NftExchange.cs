@@ -21,7 +21,7 @@ namespace NftExchange
         public static event Action<byte[], byte[], byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCreated; // (address, offerHash, nftContractHash, sellNftId, acceptAssetId, price, feeAssetId, feeAmount)
 
         [DisplayName("fillOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], byte[], byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, nftContractHash, sellNftId, fillFeeAssetID, fillFeeAmount)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, nftContractHash, sellNftId, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
 
         [DisplayName("cancelOffer")]
         public static event Action<byte[], byte[], byte[], byte[], byte[], BigInteger> EmitCancelled; // (address, offerHash, nftContractHash, nftId, feeAssetId, feeReturnAmount)
@@ -72,6 +72,7 @@ namespace NftExchange
                 // == Getters ==
                 if (operation == "getOffer") return GetOffer((byte[])args[0]); //offerHash               
                 if (operation == "getAvailabelBalance") return GetAvailabelBalance((byte[])args[0], (byte[])args[1]); //address, assetID
+                if (operation == "getBalance") return GetBalance((byte[])args[0], (byte[])args[1]);
                 if (operation == "getIsWhitelisted") return GetIsWhitelisted((byte[])args[0]);  // (assetID)
                 if (operation == "getFeeAddress") return GetFeeAddress(); //收交易费账户
                 if (operation == "getDealerAddress") return GetDealerAddress();
@@ -242,7 +243,12 @@ namespace NftExchange
             if (fillerBalance < fillAmount) throw new Exception("Invalid available balance!");
             // Reduce balance from filler
             ReduceBalance(fillerAddress, fillAssetId, fillAmount);
-            ReduceAvailabelBalance(fillerAddress, fillAssetId, fillAmount);                     
+            ReduceAvailabelBalance(fillerAddress, fillAssetId, fillAmount);
+
+            //reduce offer.MakerAddress fee amount            
+            ReduceBalance(offer.Address, offer.FeeAeestId, offer.FeeAmount);
+            //add fee
+            IncreaseBalance(feeAddress, offer.FeeAeestId, offer.FeeAmount);
 
             //add offer.MakerAddress amount
             IncreaseBalance(offer.Address, fillAssetId, fillAmount);
@@ -257,7 +263,7 @@ namespace NftExchange
             Storage.Delete(Context(), OfferKey(offerHash));
 
             // (fillerAddress, offerHash, fillAssetID, fillAmount, nftContractHash, offer.SellNftId, fillFeeAssetID, fillFeeAmount)
-            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.NftContract, offer.NftId, fillFeeAssetID, fillFeeAmount);
+            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.NftContract, offer.NftId, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, offer.FeeAmount);
 
             return true;
         }
@@ -268,15 +274,8 @@ namespace NftExchange
             Offer offer = GetOffer(offerHash);
             if (offer.Address == new byte[] { }) return false;
 
-            if (!Runtime.CheckWitness(offer.Address)) return false;
-                       
-            byte[] feeAddress = Storage.Get(Context(), "feeAddress");
-            if (feeAddress.Length != 20) return false;
-
-            var feeAddressBalance = GetBalance(feeAddress, offer.FeeAeestId);
-
-            if (feeAddressBalance < offer.FeeAmount) return false;
-
+            if (!Runtime.CheckWitness(offer.Address)) return false;          
+            
             //add fee to MakerAddress
             IncreaseAvailableBalance(offer.Address, offer.FeeAeestId, offer.FeeAmount);
 
@@ -534,20 +533,6 @@ namespace NftExchange
             public byte[] FeeAeestId;
             public BigInteger FeeAmount;
         }
-
-        //originator nftContractHash  sellNftId acceptAssetId  price feeAssetId  feeAmount
-        private static Offer NewOffer(byte[] makerAddress, byte[] nftContractHash, byte[] sellNftId, byte[] acceptAssetId, BigInteger price, byte[] feeAeestId, BigInteger feeAmount)
-        {
-            return new Offer
-            {
-                Address = makerAddress,
-                NftContract = nftContractHash,
-                NftId = sellNftId,
-                AcceptAssetId = acceptAssetId,
-                Price = price,
-                FeeAeestId = feeAeestId,
-                FeeAmount = feeAmount
-            };
-        }
+       
     }
 }
