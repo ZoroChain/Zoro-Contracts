@@ -16,13 +16,10 @@ namespace BrokerContract
         public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger,byte[], BigInteger> EmitCreated; // (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetId, feeAmount)
 
         [DisplayName("fillOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
 
         [DisplayName("cancelOffer")]
         public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCancelled; // (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
-
-        //[DisplayName("changeBalance")]
-        //public static event Action<byte[], byte[], BigInteger, string> EmitChangedBalance; // (address, assetID, amount, reason)
 
         [DisplayName("deposit")]
         public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
@@ -88,7 +85,7 @@ namespace BrokerContract
                 if (GetState() != Active) return false;
 
                 //存钱 充值
-                if (operation == "deposit") // (originator, assetID, value, isGlobal) 存钱，如果不能跳板调用的话需要支持 txid 存钱
+                if (operation == "deposit") // (originator, assetID, value, isGlobal)
                 {
                     if (args.Length != 4) return false;
                     return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2],(BigInteger)args[3]);
@@ -100,7 +97,7 @@ namespace BrokerContract
                     return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
                 }
                 //挂单
-                if (operation == "makeOffer") // (makerAddress, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetID, feeAmount)
+                if (operation == "makeOffer") // (makerAddress, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetID, feeAmount, timespan)
                 {
                     if (args.Length != 8) return false;
 
@@ -108,12 +105,12 @@ namespace BrokerContract
                     BigInteger curTime = Runtime.Time;
                     if (curTime - time > 300) return false;
 
-                    var offer = NewOffer((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (byte[])args[3], (BigInteger)args[4], (byte[])args[5], (BigInteger)args[6]);
+                    var offer = NewOffer((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (byte[])args[3], (BigInteger)args[4], (byte[])args[5], (BigInteger)args[6], time);
                     
                     return MakeOffer(offer);
                 }
                 //撮合成交
-                if (operation == "fillOffer") // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount
+                if (operation == "fillOffer") // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount, timespan
                 {
                     if (args.Length != 7) return false;
 
@@ -167,7 +164,6 @@ namespace BrokerContract
         /***********
          * Trading *
          ***********/
-
         private static bool MakeOffer(Offer offer)
         {
             var dealerAddress = GetDealerAddress();
@@ -177,18 +173,15 @@ namespace BrokerContract
             if (dealerAddress == offer.MakerAddress) return false;
 
             // Check that nonce is not repeated
-            var offerHash = (ExecutionEngine.ScriptContainer as Transaction).Hash;
+            var offerHash = Hash(offer);
             if (Storage.Get(Context(), OfferKey(offerHash)).Length != 0) return false;
 
             if (!GetIsWhitelisted(offer.OfferAssetID) || !GetIsWhitelisted(offer.WantAssetID)) return false;
 
-            // Check that the amounts > 0
             if (!(offer.OfferAmount > 0 && offer.WantAmount > 0 && offer.FeeAmount >= 0)) return false;
 
-            // Check the trade is across different assets
             if (offer.OfferAssetID == offer.WantAssetID) return false;
 
-            // Check that asset IDs are valid
             if (offer.OfferAssetID.Length != 20 || offer.WantAssetID.Length != 20 || offer.FeeAeestId.Length != 20) return false;
 
             byte[] feeAddress = Storage.Get(Context(), "feeAddress");
@@ -236,46 +229,47 @@ namespace BrokerContract
 
             //filler 可以买到的数量
             BigInteger amountFillerGet = (fillAmount * offer.OfferAmount) / offer.WantAmount;
-            
-            if (amountFillerGet < 1) return false;
+            BigInteger feeAmount = (amountFillerGet * offer.FeeAmount) / offer.OfferAmount;
 
             // Check that you cannot take more than available
+            if (amountFillerGet < 1) return false;
             if (amountFillerGet > offer.AvailableAmount) return false;
+            if (feeAmount > offer.AvailableFeeAmount) return false;
 
             if (GetAvailabelBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) throw new Exception("Invalid available balance!");
-            // Reduce fees
-            ReduceBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
-            ReduceAvailabelBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
-            //add fee
-            IncreaseBalance(feeAddress, fillFeeAssetID, fillFeeAmount);
 
             var fillerBalance = GetAvailabelBalance(fillerAddress, offer.WantAssetID);
             if (fillerBalance < fillAmount) throw new Exception("Invalid available balance!");
+
+            // Reduce fees
+            ReduceBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
+            ReduceAvailabelBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
+            IncreaseBalance(feeAddress, fillFeeAssetID, fillFeeAmount);                 
+            
+            ReduceBalance(offer.MakerAddress, offer.FeeAeestId, feeAmount);
+            offer.AvailableFeeAmount -= feeAmount;
+            IncreaseBalance(feeAddress, offer.FeeAeestId, feeAmount);
+
             // Reduce balance from filler
             ReduceBalance(fillerAddress, offer.WantAssetID, fillAmount);
             ReduceAvailabelBalance(fillerAddress, offer.WantAssetID, fillAmount);
-
-            //reduce offer.MakerAddress amount
-            ReduceBalance(offer.MakerAddress, offer.OfferAssetID, amountFillerGet);
-            BigInteger feeAmount = (amountFillerGet * offer.FeeAmount) / offer.OfferAmount;
-            ReduceBalance(offer.MakerAddress, offer.FeeAeestId, feeAmount);
-
             //add offer.MakerAddress amount
             IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);            
             IncreaseAvailableBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);
-
+            
+            //reduce offer.MakerAddress amount
+            ReduceBalance(offer.MakerAddress, offer.OfferAssetID, amountFillerGet);
             //add fillerAddress amount
             IncreaseBalance(fillerAddress, offer.OfferAssetID, amountFillerGet);
             IncreaseAvailableBalance(fillerAddress, offer.OfferAssetID, amountFillerGet);
 
             // Update available amount
-            offer.AvailableAmount = offer.AvailableAmount - amountFillerGet;
+            offer.AvailableAmount -= amountFillerGet;
 
-            // Store updated offer
             StoreOffer(offerHash, offer);
 
             // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount)
-            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.OfferAssetID, amountFillerGet, fillFeeAssetID, fillFeeAmount);
+            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.OfferAssetID, amountFillerGet, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, feeAmount);
 
             return true;
         }
@@ -286,20 +280,10 @@ namespace BrokerContract
             Offer offer = GetOffer(offerHash);
             if (offer.MakerAddress == new byte[] { }) return false;
 
-            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;
-
-            //按比例计算剩余的交易费
-            var feeReturnAmount = (offer.AvailableAmount * offer.FeeAmount) / offer.OfferAmount;
-
-            byte[] feeAddress = Storage.Get(Context(), "feeAddress");
-            if (feeAddress.Length != 20) return false;
-
-            var feeAddressBalance = GetBalance(feeAddress, offer.FeeAeestId);
-
-            if (feeAddressBalance < feeReturnAmount) return false;
+            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;                                           
 
             //add fee to MakerAddress
-            IncreaseAvailableBalance(offer.MakerAddress, offer.FeeAeestId, feeReturnAmount);
+            IncreaseAvailableBalance(offer.MakerAddress, offer.FeeAeestId, offer.AvailableFeeAmount);
 
             // Move funds to maker address
             IncreaseAvailableBalance(offer.MakerAddress, offer.OfferAssetID, offer.AvailableAmount);
@@ -308,7 +292,7 @@ namespace BrokerContract
             Storage.Delete(Context(), OfferKey(offerHash));
 
             // Notify (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
-            EmitCancelled(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.AvailableAmount, offer.FeeAeestId, feeReturnAmount);
+            EmitCancelled(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.AvailableAmount, offer.FeeAeestId, offer.AvailableFeeAmount);
             return true;
         }
 
@@ -333,7 +317,6 @@ namespace BrokerContract
             BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
             Storage.Put(Context(), key, currentBalance + amount);
             //EmitChangedBalance(originator, assetID, amount, reason);
-
             return true;
         }
 
@@ -345,7 +328,6 @@ namespace BrokerContract
             BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
             Storage.Put(Context(), key, currentBalance + amount);
             //EmitChangedBalance(originator, assetID, amount, reason);
-
             return true;
         }
 
@@ -500,7 +482,6 @@ namespace BrokerContract
         /***********
          * Control *
          ***********/
-
         private static bool SetState(BigInteger setValue)
         {
             if (setValue == 0)
@@ -567,25 +548,40 @@ namespace BrokerContract
             public byte[] MakerAddress;
             public byte[] OfferAssetID;
             public BigInteger OfferAmount;
-            public byte[] WantAssetID;
-            public BigInteger WantAmount;
             public BigInteger AvailableAmount;
+            public byte[] WantAssetID;
+            public BigInteger WantAmount;            
             public byte[] FeeAeestId;
             public BigInteger FeeAmount;
+            public BigInteger AvailableFeeAmount;
+            public BigInteger TimeSpan;
         }
 
-        private static Offer NewOffer(byte[] makerAddress, byte[] offerAssetID, BigInteger offerAmount, byte[] wantAssetID, BigInteger wantAmount, byte[] feeAeestId, BigInteger feeAmount)
+        private static byte[] Hash(Offer offer)
+        {
+            var bytes = offer.MakerAddress
+                .Concat(offer.OfferAssetID)
+                .Concat(offer.WantAssetID)
+                .Concat(offer.OfferAmount.AsByteArray())
+                .Concat(offer.WantAmount.AsByteArray())
+                .Concat(offer.TimeSpan.AsByteArray());
+            return Hash256(bytes);
+        }
+
+        private static Offer NewOffer(byte[] makerAddress, byte[] offerAssetID, BigInteger offerAmount, byte[] wantAssetID, BigInteger wantAmount, byte[] feeAeestId, BigInteger feeAmount, BigInteger timeSpan)
         {
             return new Offer
             {
                 MakerAddress = makerAddress,
                 OfferAssetID = offerAssetID,
                 OfferAmount = offerAmount,
+                AvailableAmount = offerAmount,
                 WantAssetID = wantAssetID,
                 WantAmount = wantAmount,
-                AvailableAmount = offerAmount,
                 FeeAeestId = feeAeestId,
-                FeeAmount = feeAmount
+                FeeAmount = feeAmount,
+                AvailableFeeAmount = feeAmount,
+                TimeSpan = timeSpan
             };
         }
 
