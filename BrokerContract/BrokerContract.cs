@@ -16,10 +16,10 @@ namespace BrokerContract
         public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger,byte[], BigInteger> EmitCreated; // (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetId, feeAmount)
 
         [DisplayName("fillOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
+        public static event Action<byte[], byte[], byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
 
         [DisplayName("cancelOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCancelled; // (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, BigInteger> EmitCancelled; // (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
 
         [DisplayName("deposit")]
         public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
@@ -38,9 +38,6 @@ namespace BrokerContract
 
         [DisplayName("dealerAddressSet")]
         public static event Action<byte[]> EmitDealerAddressSet; // (address)
-
-        [DisplayName("initialized")]
-        public static event Action EmitInitialized;
 
         // superAdmin
         private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
@@ -123,8 +120,11 @@ namespace BrokerContract
                 //取消挂单
                 if (operation == "cancelOffer") // (offerHash)
                 {
-                    if (args.Length != 1) return false;
-                    return CancelOffer((byte[])args[0]);
+                    if (args.Length != 2) return false;
+                    byte[] offerHash = (byte[])args[0];
+                    BigInteger deductFee = (BigInteger)args[1];
+                    if (offerHash.Length == 0 || deductFee < 0) return false;
+                    return CancelOffer(offerHash, deductFee);
                 }
 
                 // 管理员签名
@@ -217,6 +217,7 @@ namespace BrokerContract
             // Check fees
             if (fillFeeAssetID.Length != 20) return false;
             if (fillFeeAmount < 0) return false;
+
             byte[] feeAddress = Storage.Get(Context(), "feeAddress");
             if (feeAddress.Length != 20) return false;
 
@@ -269,18 +270,30 @@ namespace BrokerContract
             StoreOffer(offerHash, offer);
 
             // (fillerAddress, offerHash, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount)
-            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.OfferAssetID, amountFillerGet, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, feeAmount);
+            EmitFilled(fillerAddress, offerHash, offer.MakerAddress, fillAssetId, fillAmount, offer.OfferAssetID, amountFillerGet, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, feeAmount);
 
             return true;
         }
 
-        private static bool CancelOffer(byte[] offerHash)
+        private static bool CancelOffer(byte[] offerHash, BigInteger deductFee)
         {
             // Check that the offer exists
             Offer offer = GetOffer(offerHash);
-            if (offer.MakerAddress == new byte[] { }) return false;
+            if (offer.MakerAddress.Length == 0) return false;
 
-            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;                                           
+            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;            
+
+            if (deductFee > 0)
+            {
+                if (offer.AvailableFeeAmount < deductFee) return false;
+
+                byte[] feeAddress = Storage.Get(Context(), "feeAddress");
+                if (feeAddress.Length != 20) return false;
+
+                IncreaseBalance(feeAddress, offer.FeeAeestId, deductFee);
+
+                offer.AvailableFeeAmount -= deductFee;
+            }
 
             //add fee to MakerAddress
             IncreaseAvailableBalance(offer.MakerAddress, offer.FeeAeestId, offer.AvailableFeeAmount);
@@ -292,7 +305,7 @@ namespace BrokerContract
             Storage.Delete(Context(), OfferKey(offerHash));
 
             // Notify (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
-            EmitCancelled(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.AvailableAmount, offer.FeeAeestId, offer.AvailableFeeAmount);
+            EmitCancelled(offer.MakerAddress, offerHash, offer.OfferAssetID, offer.AvailableAmount, offer.FeeAeestId, offer.AvailableFeeAmount, deductFee);
             return true;
         }
 
@@ -309,25 +322,25 @@ namespace BrokerContract
             }
         }
 
-        private static bool IncreaseBalance(byte[] originator, byte[] assetID, BigInteger amount)
+        private static bool IncreaseBalance(byte[] address, byte[] assetID, BigInteger amount)
         {
             if (amount < 1) throw new ArgumentOutOfRangeException();
 
-            byte[] key = BalanceKey(originator, assetID);
+            byte[] key = BalanceKey(address, assetID);
             BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
             Storage.Put(Context(), key, currentBalance + amount);
-            //EmitChangedBalance(originator, assetID, amount, reason);
+
             return true;
         }
 
-        private static bool IncreaseAvailableBalance(byte[] originator, byte[] assetID, BigInteger amount)
+        private static bool IncreaseAvailableBalance(byte[] address, byte[] assetID, BigInteger amount)
         {
             if (amount < 1) throw new ArgumentOutOfRangeException();
 
-            byte[] key = AvailableBalanceKey(originator, assetID);
+            byte[] key = AvailableBalanceKey(address, assetID);
             BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
             Storage.Put(Context(), key, currentBalance + amount);
-            //EmitChangedBalance(originator, assetID, amount, reason);
+
             return true;
         }
 
@@ -344,7 +357,6 @@ namespace BrokerContract
             if (newBalance > 0) Storage.Put(Context(), key, newBalance);
             else Storage.Delete(Context(), key);
 
-            //EmitChangedBalance(address, assetID, 0 - amount, reason);
             return true;
         }
 
@@ -497,7 +509,6 @@ namespace BrokerContract
         {
             if (!SetFeeAddress(feeAddress)) throw new Exception("Failed to set fee address");
             if (!SetDealerAddress(dealerAddress)) throw new Exception("Failed to set the dealer address");
-            EmitInitialized();
             return true;
         }
 
