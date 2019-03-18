@@ -290,6 +290,8 @@ namespace BrokerContract
                 byte[] feeAddress = Storage.Get(Context(), "feeAddress");
                 if (feeAddress.Length != 20) return false;
 
+                ReduceBalance(offer.MakerAddress, offer.FeeAeestId, deductFee);
+
                 IncreaseBalance(feeAddress, offer.FeeAeestId, deductFee);
 
                 offer.AvailableFeeAmount -= deductFee;
