@@ -40,28 +40,43 @@ namespace NFTContract
 
                 //invoke
                 if (method == "name") return "NFT";
-                if (method == "symbol") return "NFT Test";
+                if (method == "symbol") return "NFT";
                 if (method == "totalSupply") return Storage.Get(Context(), TotalSupplyKey()).AsBigInteger();
                 if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
-                if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));
-                if (method == "tokenRoData") return Storage.Get(Context(), TokenRoDataKey((byte[])args[0]));
-                if (method == "tokenRwData") return Storage.Get(Context(), TokenRwDataKey((byte[])args[0]));
+                if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));                
+
                 if (method == "ownerOf") return Storage.Get(Context(), TokenOwnerKey((byte[])args[0]));
                 if (method == "balanceOf") return Storage.Get(Context(), BalanceKey((byte[])args[0]));
+                if (method == "uri") return Storage.Get(Context(), TokenUriKey((byte[])args[0]));
+                if (method == "properties") return Storage.Get(Context(), PropertiesKey((byte[])args[0]));
+
+                if (method == "tokenRwData") return Storage.Get(Context(), TokenRwDataKey((byte[])args[0]));
 
                 if (method == "mintToken") //(address)
                 {
                     if (args.Length != 3) return false;
                     var owner = (byte[])args[0];
-                    var RoData = (byte[])args[1];
-                    var RwData = (byte[])args[2];
+                    var uri = (byte[])args[1]; 
+                    var properties = (byte[])args[2];
 
                     if (!Runtime.CheckWitness(superAdmin)) return false;
 
-                    if (owner.Length != 20 || RoData.Length == 0) return false;
-                    if (RoData.Length > 2048) return false;
+                    if (owner.Length != 20 || uri.Length == 0) return false;
+                    if (properties.Length > 2048) return false;
 
-                    return MintNFT(owner, RoData, RwData);
+                    return MintNFT(owner, uri, properties);
+                }
+
+                if (method == "modifyUri")
+                {
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    if (args.Length != 2) return false;
+                    var tokenId = (byte[])args[0];
+                    var uri = (byte[])args[1];
+                    var token = Storage.Get(Context(), TokenUriKey(tokenId));
+                    if (token.Length == 0) return false;
+                    Storage.Put(Context(), TokenUriKey(tokenId), uri);
+                    return true;
                 }
 
                 if (method == "modifyRwData")
@@ -74,7 +89,7 @@ namespace NFTContract
                     if (token.Length == 0) return false;
                     Storage.Put(Context(), TokenRwDataKey(tokenId), RwData);
                     return true;
-                }                
+                }
 
                 if (method == "transfer")
                 {
@@ -190,14 +205,14 @@ namespace NFTContract
             return true;
         }
 
-        private static bool MintNFT(byte[] owner, byte[] RoData, byte[] RwData)
+        private static bool MintNFT(byte[] owner, byte[] uri, byte[] properties)
         {
-            var tokenId = Hash256(RoData.Concat(RwData));
+            var tokenId = Hash256(properties.Concat(uri));
             var addr = Storage.Get(Context(), TokenOwnerKey(tokenId));
             if (addr.Length > 0) return false;
 
-            Storage.Put(Context(), TokenRoDataKey(tokenId), RoData);
-            Storage.Put(Context(), TokenRwDataKey(tokenId), RwData);
+            Storage.Put(Context(), TokenUriKey(tokenId), uri);
+            Storage.Put(Context(), PropertiesKey(tokenId), properties);
             Storage.Put(Context(), TokenOwnerKey(tokenId), owner);
 
             var keyTotalSupply = TotalSupplyKey();           
@@ -233,13 +248,14 @@ namespace NFTContract
         }
 
         private static StorageContext Context() => Storage.CurrentContext;
-        private static byte[] TokenOwnerKey(byte[] tokenId) => "tokenOwner".AsByteArray().Concat(tokenId);
+        private static byte[] TokenOwnerKey(byte[] tokenId) => new byte[] { 0x10 }.Concat(tokenId);
         private static byte[] BalanceKey(byte[] owner) => new byte[] { 0x11 }.Concat(owner);
-        private static byte[] TokenRoDataKey(byte[] tokenId) => "tokenRoData".AsByteArray().Concat(tokenId);
-        private static byte[] TokenRwDataKey(byte[] tokenId) => "tokenRwDate".AsByteArray().Concat(tokenId);
-        //private static byte[] tokenUriKey(byte[] tokenId) => "tokenUri".AsByteArray().Concat(tokenId);
-        private static byte[] TxidKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
-        private static byte[] AllowanceKey(byte[] tokenId) => new byte[] { 0x14 }.Concat(tokenId);
+        private static byte[] TokenRoDataKey(byte[] tokenId) => new byte[] { 0x12 }.Concat(tokenId);
+        private static byte[] TokenRwDataKey(byte[] tokenId) => new byte[] { 0x13 }.Concat(tokenId);
+        private static byte[] TokenUriKey(byte[] tokenId) => new byte[] { 0x14 }.Concat(tokenId);
+        private static byte[] TxidKey(byte[] txid) => new byte[] { 0x15 }.Concat(txid);
+        private static byte[] AllowanceKey(byte[] tokenId) => new byte[] { 0x16 }.Concat(tokenId);
+        private static byte[] PropertiesKey(byte[] tokenId) => new byte[] { 0x17 }.Concat(tokenId);
         private static string TotalSupplyKey() => "totalSupply";
     }
 
