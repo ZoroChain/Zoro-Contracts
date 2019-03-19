@@ -9,7 +9,7 @@ using Helper = Neo.SmartContract.Framework.Helper;
 namespace NFT_Token
 {
     /// <summary>
-    /// BlaCat合伙人证书 精简版、只保留基本接口，配置和参数都从外部传入
+    /// BlaCat合伙人证书
     /// </summary>
     public class NFTContract : SmartContract
     {
@@ -19,8 +19,11 @@ namespace NFT_Token
         [DisplayName("buy")]
         public static event Action<byte[], byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, byte[] inviterTokenId, int num, int Value, Map Nfts TokenId);
 
-        [DisplayName("exchange")]
-        public static event Action<byte[], byte[], byte[]> Exchanged;//(byte[] from, byte[] to, byte[] tokenId);
+        [DisplayName("transfer")]
+        public static event Action<byte[], byte[], byte[]> Transferred;//(byte[] from, byte[] to, byte[] tokenId);
+
+        [DisplayName("approve")]
+        public static event Action<byte[], byte[], byte[]> Approved;//(byte[] owner, byte[] to, byte[] TokenId);
 
         [DisplayName("upgrade")]
         public static event Action<byte[], byte[], BigInteger, BigInteger> Upgraded;//(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank);
@@ -58,6 +61,8 @@ namespace NFT_Token
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
+                var entryscript = ExecutionEngine.EntryScriptHash;
+
                 //管理员权限     设置合约状态          
                 if (method == "setState")
                 {
@@ -77,34 +82,75 @@ namespace NFT_Token
                 // allstop 表示合约全部接口已停用
                 if (GetState() == AllStop) return false;
 
-                if (method == "setAdmin")
-                {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    if (args.Length != 1) return false;
-                    byte[] adminAddress = (byte[])args[0];
-                    if (adminAddress.Length != 20) return false;
-                    Storage.Put(Context(), "adminAddress", adminAddress);
-                    return true;
-                }
-
                 //invoke
+                if (method == "name") return "Partner";
+                if (method == "symbol") return "Partner";
                 if (method == "getBindNft") return GetTokenIdByAddress((byte[])args[0]);
                 if (method == "getNftInfo") return GetNftByTokenId((byte[])args[0]);
-                if (method == "getExInfo") return GetExInfoByTxid((byte[])args[0]);
+                if (method == "getTxInfo") return GetExInfoByTxid((byte[])args[0]);
                 if (method == "getGather") return Storage.Get(Context(), "gatherAddress");
                 if (method == "getTotal") return Storage.Get(Context(), "totalCount").AsBigInteger();
-                if (method == "getUserNftCount") return GetUserNftCount((byte[])args[0]);
-                if (method == "getAllNftCount") return Storage.Get(Context(), "allNftCount").AsBigInteger();
-                if (method == "getActivatedCount") return Storage.Get(Context(), "activatedCount").AsBigInteger();
+                if (method == "balanceOf") return GetUserNftCount((byte[])args[0]);
+                if (method == "totalSupply") return Storage.Get(Context(), "allNftCount").AsBigInteger();
+                if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));
+                if (method == "balanceOfActivated") return Storage.Get(Context(), "activatedCount").AsBigInteger();
 
                 // 以下接口只有 Active 时可用
                 if (GetState() != Active) return false;
 
                 //交易
-                if (method == "exchange") //(byte[] from, byte[] to, byte[] tokenId)
+                if (method == "transfer") //(byte[] from, byte[] to, byte[] tokenId)
                 {
                     if (args.Length != 3) return false;
-                    return ExchangeNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
+                    if (callscript != entryscript) return false;
+
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    byte[] tokenId = (byte[])args[2];
+
+                    if (!Runtime.CheckWitness(from)) return false;
+                    if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
+
+                    return TransferNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
+                }
+
+                if (method == "approve")
+                {
+                    if (args.Length != 3) return false;
+                    if (callscript != entryscript) return false;
+
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    byte[] tokenId = (byte[])args[2];
+
+                    if (!Runtime.CheckWitness(from)) return false;
+                    if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
+
+                    return Approve(from, to, tokenId);
+                }
+
+                if (method == "transferFrom")
+                {
+                    if (args.Length != 3) return false;
+
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    byte[] tokenId = (byte[])args[2];
+
+                    if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
+
+                    return TransferFrom(from, to, tokenId);
+                }
+
+                if (method == "transferApp")
+                {
+                    byte[] from = (byte[])args[0];
+                    byte[] to = (byte[])args[1];
+                    byte[] tokenId = (byte[])args[2];
+                    if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
+
+                    if (from != callscript) return false;
+                    return TransferNft(from, to, tokenId);
                 }
 
                 //绑定
@@ -122,8 +168,7 @@ namespace NFT_Token
                 }
 
                 //*****  需要 adimin 权限   ******
-                byte[] admin = Storage.Get(Context(), "adminAddress");
-                if (!Runtime.CheckWitness(admin)) return false;
+                if (!Runtime.CheckWitness(superAdmin)) return false;
 
                 //设置参数
                 if (method == "setGather")
@@ -409,11 +454,8 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool ExchangeNft(byte[] from, byte[] to, byte[] tokenId)
-        {
-            if (!Runtime.CheckWitness(from)) return false;
-            if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
-
+        private static bool TransferNft(byte[] from, byte[] to, byte[] tokenId)
+        {           
             if (from == to) return true;
 
             var fromNftInfo = GetNftByTokenId(tokenId);
@@ -439,8 +481,59 @@ namespace NFT_Token
 
             SaveExInfo(from, to, tokenId);
             //notify
-            Exchanged(from, to, tokenId);
+            Transferred(from, to, tokenId);
 
+            return true;
+        }
+
+        private static bool TransferFrom(byte[] from, byte[] to, byte[] tokenId)
+        {
+            if (from == to) return true;
+
+            var fromNftInfo = GetNftByTokenId(tokenId);
+
+            //from 没有证书、false
+            if (fromNftInfo.Owner != from) return false;
+
+            var allowanceSpend = Storage.Get(Context(), AllowanceKey(tokenId));
+            if (allowanceSpend != from.Concat(to)) return false;
+
+            //更换所有者
+            fromNftInfo.Owner = to;
+
+            SaveNftInfo(fromNftInfo);
+
+            BigInteger fromUserNftCount = GetUserNftCount(from);
+            Storage.Put(Context(), UserNftCountKey(from), fromUserNftCount - 1);
+            BigInteger toUserNftCount = GetUserNftCount(to);
+            Storage.Put(Context(), UserNftCountKey(to), fromUserNftCount + 1);
+
+            var fromTokenId = GetTokenIdByAddress(from);
+
+            //如果把绑定的卖了、就删除绑定
+            if (fromTokenId == tokenId)
+                Storage.Delete(Context(), BindNftKey(from));
+
+            SaveExInfo(from, to, tokenId);
+            //notify
+            Transferred(from, to, tokenId);
+
+            return true;
+        }
+
+        private static bool Approve(byte[] from, byte[] to, byte[] tokenId)
+        {
+            if (from == to) return true;
+
+            var fromNftInfo = GetNftByTokenId(tokenId);
+
+            //from 没有证书、false
+            if (fromNftInfo.Owner != from) return false;
+
+            Storage.Put(Context(), AllowanceKey(tokenId), from.Concat(to));
+
+            //notify
+            Approved(from, to, tokenId);
             return true;
         }
 
@@ -540,6 +633,7 @@ namespace NFT_Token
         private static byte[] NftInfoKey(byte[] tokenId) => new byte[] { 0x12 }.Concat(tokenId);
         private static byte[] TxInfoKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
         private static byte[] BctTxidUsedKey(byte[] txid) => new byte[] { 0x14 }.Concat(txid);
+        private static byte[] AllowanceKey(byte[] tokenId) => new byte[] { 0x15 }.Concat(tokenId);
 
     }
 
