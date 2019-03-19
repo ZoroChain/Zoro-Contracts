@@ -25,3 +25,28 @@ The operations of the NFT template contract are:
 * transferApp(from, to, token_id): transfers a token, the from must be calling contract hash
 * transferFrom(from, to, token_id): transfers a token by authorized spender
 * uri(token_id): returns a token's URI
+
+
+### Properties
+
+The properties is the basic information of NFT, including name, description and other fields. It has a uniform json format. When NFT is created, the json properties will be serialized into byte array and stored in NFT properties, which is deserialized into json when used externally, json properties like this:
+```
+{
+    "title": "NFT Properties",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Identifies the asset to which this NFT represents"
+        },
+        "description": {
+            "type": "string",
+            "description": "Describes the asset to which this NFT represents"
+        },
+        "image": {
+            "type": "string",
+            "description": "A URI pointing to a resource with mime type image/* representing the asset to which this NFT represents. Consider making any images at a width between 320 and 1080 pixels and aspect ratio between 1.91:1 and 4:5 inclusive."
+        }
+    }
+}
+```
