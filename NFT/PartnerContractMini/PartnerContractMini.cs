@@ -12,8 +12,7 @@ namespace NFT_Token
     /// BlaCat合伙人证书
     /// </summary>
     public class NFTContract : SmartContract
-    {
-        //超级管理员、只用来设定操作管理员和合约状态
+    {        
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");
 
         [DisplayName("buy")]
@@ -85,14 +84,16 @@ namespace NFT_Token
                 //invoke
                 if (method == "name") return "Partner";
                 if (method == "symbol") return "Partner";
-                if (method == "getBindNft") return GetTokenIdByAddress((byte[])args[0]);
-                if (method == "getNftInfo") return GetNftByTokenId((byte[])args[0]);
-                if (method == "getTxInfo") return GetExInfoByTxid((byte[])args[0]);
-                if (method == "getGather") return Storage.Get(Context(), "gatherAddress");
-                if (method == "getTotal") return Storage.Get(Context(), "totalCount").AsBigInteger();
-                if (method == "balanceOf") return GetUserNftCount((byte[])args[0]);
                 if (method == "totalSupply") return Storage.Get(Context(), "allNftCount").AsBigInteger();
+                if (method == "getTxInfo") return GetExInfoByTxid((byte[])args[0]);
                 if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));
+                if (method == "ownerOf") return GetOwnerByTokenId((byte[])args[0]);
+                if (method == "balanceOf") return GetUserNftCount((byte[])args[0]);
+                if (method == "properties") return GetNftByTokenId((byte[])args[0]);
+
+                if (method == "getBindNft") return GetTokenIdByAddress((byte[])args[0]);               
+                if (method == "getGather") return Storage.Get(Context(), "gatherAddress");
+                if (method == "getTotal") return Storage.Get(Context(), "totalCount").AsBigInteger();                
                 if (method == "balanceOfActivated") return Storage.Get(Context(), "activatedCount").AsBigInteger();
 
                 // 以下接口只有 Active 时可用
@@ -598,6 +599,12 @@ namespace NFT_Token
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
             var key = TxInfoKey(txid);
             Storage.Put(Context(), key, exInfo);
+        }
+
+        public static byte[] GetOwnerByTokenId(byte[] tokenId)
+        {
+            var nft = GetNftByTokenId(tokenId);
+            return nft.Owner;
         }
 
         public static NFTInfo GetNftByTokenId(byte[] tokenId)

@@ -157,6 +157,12 @@ namespace NftExchange
 
         private static bool MakeOffer(byte[] makerAddress, byte[] nftContractHash, byte[] sellNftId, byte[] acceptAssetId, BigInteger price, byte[] feeAeestId, BigInteger feeAmount, BigInteger timeSpan)
         {
+            var dealerAddress = GetDealerAddress();
+            if (!Runtime.CheckWitness(dealerAddress)) return false;
+            if (!Runtime.CheckWitness(makerAddress)) return false;
+            if (dealerAddress == makerAddress) return false;
+            if (!GetIsWhitelisted(nftContractHash) || !GetIsWhitelisted(feeAeestId)) return false;
+
             Offer offer = new Offer
             {
                 Address = makerAddress,
@@ -169,17 +175,9 @@ namespace NftExchange
                 TimeSpan = timeSpan
             };
 
-            var dealerAddress = GetDealerAddress();
-
-            if (!Runtime.CheckWitness(dealerAddress)) return false;
-            if (!Runtime.CheckWitness(makerAddress)) return false;
-            if (dealerAddress == makerAddress) return false;
-
             // Check that nonce is not repeated
             var offerHash = Hash(offer);
-            if (Storage.Get(Context(), OfferKey(offerHash)).Length != 0) return false;
-
-            if (!GetIsWhitelisted(nftContractHash) || !GetIsWhitelisted(feeAeestId)) return false;
+            if (Storage.Get(Context(), OfferKey(offerHash)).Length != 0) return false;                        
 
             // Check that the amounts > 0
             if (feeAmount <= 0) return false;           

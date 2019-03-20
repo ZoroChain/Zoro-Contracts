@@ -151,7 +151,7 @@ namespace NFTContract
             if (from == to) return true;
 
             var owner = Storage.Get(Context(), TokenOwnerKey(tokenId));
-            if (owner.AsBigInteger() != from.AsBigInteger()) return false;
+            if (owner != from) return false;
 
             Storage.Put(Context(), TokenOwnerKey(tokenId), to);
 
