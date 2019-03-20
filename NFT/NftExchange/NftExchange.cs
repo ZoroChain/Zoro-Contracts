@@ -21,7 +21,7 @@ namespace NftExchange
         public static event Action<byte[], byte[], byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitCreated; // (address, offerHash, nftContractHash, sellNftId, acceptAssetId, price, feeAssetId, feeAmount)
 
         [DisplayName("fillOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, fillAssetID, fillAmount, nftContractHash, sellNftId, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
+        public static event Action<byte[], byte[], byte[], byte[], BigInteger, byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, nftContractHash, sellNftId, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
 
         [DisplayName("cancelOffer")]
         public static event Action<byte[], byte[], byte[], byte[], byte[], BigInteger> EmitCancelled; // (address, offerHash, nftContractHash, nftId, feeAssetId, feeReturnAmount)
@@ -258,8 +258,8 @@ namespace NftExchange
 
             Storage.Delete(Context(), OfferKey(offerHash));
 
-            // (fillerAddress, offerHash, fillAssetID, fillAmount, nftContractHash, offer.SellNftId, fillFeeAssetID, fillFeeAmount)
-            EmitFilled(fillerAddress, offerHash, fillAssetId, fillAmount, offer.NftContract, offer.TokenId, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, offer.FeeAmount);
+            // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, nftContractHash, offer.SellNftId, fillFeeAssetID, fillFeeAmount)
+            EmitFilled(fillerAddress, offerHash, offer.Address, fillAssetId, fillAmount, offer.NftContract, offer.TokenId, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, offer.FeeAmount);
 
             return true;
         }
