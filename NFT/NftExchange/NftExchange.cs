@@ -115,10 +115,13 @@ namespace NftExchange
                 }
 
                 //取消挂单
-                if (operation == "cancelOffer") // (offerHash)
+                if (operation == "cancelOffer") // (offerHash, deductFee)
                 {
-                    if (args.Length != 1) return false;
-                    return CancelOffer((byte[])args[0]);
+                    if (args.Length != 2) return false;
+                    byte[] offerHash = (byte[])args[0];
+                    BigInteger deductFee = (BigInteger)args[1];
+                    if (offerHash.Length == 0 || deductFee < 0) return false;
+                    return CancelOffer(offerHash, deductFee);
                 }
 
                 // 管理员签名
@@ -264,14 +267,28 @@ namespace NftExchange
             return true;
         }
 
-        private static bool CancelOffer(byte[] offerHash)
+        private static bool CancelOffer(byte[] offerHash, BigInteger deductFee)
         {
             // Check that the offer exists
             Offer offer = GetOffer(offerHash);
             if (offer.Address == new byte[] { }) return false;
 
-            if (!Runtime.CheckWitness(offer.Address)) return false;          
-            
+            if (!Runtime.CheckWitness(offer.Address)) return false;
+
+            if (deductFee > 0)
+            {
+                if (offer.FeeAmount < deductFee) return false;
+
+                byte[] feeAddress = Storage.Get(Context(), "feeAddress");
+                if (feeAddress.Length != 20) return false;
+
+                ReduceBalance(offer.Address, offer.FeeAeestId, deductFee);
+
+                IncreaseBalance(feeAddress, offer.FeeAeestId, deductFee);
+
+                offer.FeeAmount -= deductFee;
+            }
+
             //add fee to MakerAddress
             IncreaseAvailableBalance(offer.Address, offer.FeeAeestId, offer.FeeAmount);
 

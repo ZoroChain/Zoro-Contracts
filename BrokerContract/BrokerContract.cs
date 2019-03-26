@@ -118,7 +118,7 @@ namespace BrokerContract
                     return FillOffer((byte[])args[0], (byte[])args[1],(byte[])args[2], (BigInteger)args[3], (byte[])args[4], (BigInteger)args[5]);
                 }
                 //取消挂单
-                if (operation == "cancelOffer") // (offerHash)
+                if (operation == "cancelOffer") // (offerHash, deductFee)
                 {
                     if (args.Length != 2) return false;
                     byte[] offerHash = (byte[])args[0];
