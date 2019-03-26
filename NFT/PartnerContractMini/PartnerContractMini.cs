@@ -496,13 +496,16 @@ namespace NFT_Token
             //from 没有证书、false
             if (fromNftInfo.Owner != from) return false;
 
-            var allowanceSpend = Storage.Get(Context(), AllowanceKey(tokenId));
+            var allowanceKey = AllowanceKey(tokenId);
+            var allowanceSpend = Storage.Get(Context(), allowanceKey);
             if (allowanceSpend != from.Concat(to)) return false;
 
             //更换所有者
             fromNftInfo.Owner = to;
 
             SaveNftInfo(fromNftInfo);
+
+            Storage.Delete(Context(), allowanceKey);
 
             BigInteger fromUserNftCount = GetUserNftCount(from);
             Storage.Put(Context(), UserNftCountKey(from), fromUserNftCount - 1);

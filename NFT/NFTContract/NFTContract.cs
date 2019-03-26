@@ -174,10 +174,12 @@ namespace NFTContract
             var owner = Storage.Get(Context(), TokenOwnerKey(tokenId));
             if (owner.AsBigInteger() != from.AsBigInteger()) return false;
 
-            var allowanceSpend = Storage.Get(Context(), AllowanceKey(tokenId));
+            var allowanceKey = AllowanceKey(tokenId);
+            var allowanceSpend = Storage.Get(Context(), allowanceKey);
             if (allowanceSpend != from.Concat(to)) return false;
 
             Storage.Put(Context(), TokenOwnerKey(tokenId), to);
+            Storage.Delete(Context(), allowanceKey);
 
             var formBalance = Storage.Get(Context(), BalanceKey(from)).AsBigInteger();
             Storage.Put(Context(), BalanceKey(from), formBalance - 1);
