@@ -9,7 +9,7 @@ using Helper = Neo.SmartContract.Framework.Helper;
 
 namespace BCTContract
 {
-    public class Nep5TokenEx : SmartContract
+    public class Nep5Token : SmartContract
     {
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], BigInteger> Transferred;//(byte[] from, byte[] to, BigInteger value)
