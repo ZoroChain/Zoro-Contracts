@@ -28,10 +28,10 @@ namespace BrokerContract
         public static event Action<byte[], byte[], BigInteger> EmitWithdrawn; // (address, assetID, amount)
 
         [DisplayName("addedToWhitelist")]
-        public static event Action<byte[]> EmitAddedToWhitelist; // (scriptHash, whitelistEnum)
+        public static event Action<byte[]> EmitAddedToWhitelist; // (scriptHash)
 
         [DisplayName("removedFromWhitelist")]
-        public static event Action<byte[]> EmitRemovedFromWhitelist; // (scriptHash, whitelistEnum)
+        public static event Action<byte[]> EmitRemovedFromWhitelist; // (scriptHash)
 
         [DisplayName("feeAddressSet")]
         public static event Action<byte[]> EmitFeeAddressSet; // (address)
@@ -397,7 +397,7 @@ namespace BrokerContract
             {
                 success = NativeAsset.Call("TransferFrom", assetId, originator, to, value);
             }
-            if (isGlobal == 0)
+            else
             {
                 var args = new object[] { originator, to, value };
                 var contract = (NEP5Contract)assetId.ToDelegate();
@@ -436,7 +436,7 @@ namespace BrokerContract
             {
                 success = NativeAsset.Call("TransferApp", assetId, from, originator, amount);
             }
-            if (isGlobal == 0)
+            else
             {
                 var args = new object[] { from, originator, amount };
                 var contract = (NEP5Contract)assetId.ToDelegate();

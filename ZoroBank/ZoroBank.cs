@@ -39,17 +39,7 @@ namespace ZoroBank
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "ZoroBankTest";
-            if (Runtime.Trigger == TriggerType.Verification)
-            {
-                return false;
-            }
-
-            if (Runtime.Trigger == TriggerType.VerificationR)
-            {
-                return true;
-            }
-
+            var magicstr = "ZoroBankTest";            
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
