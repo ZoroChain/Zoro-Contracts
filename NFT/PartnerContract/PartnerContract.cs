@@ -15,7 +15,7 @@ namespace NFT_Token
     {        
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");
 
-        [DisplayName("buy")]
+        [DisplayName("mintToken")]
         public static event Action<byte[], byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, byte[] inviterTokenId, int num, int Value, Map Nfts TokenId);
 
         [DisplayName("transfer")]
@@ -27,7 +27,7 @@ namespace NFT_Token
         [DisplayName("upgrade")]
         public static event Action<byte[], byte[], BigInteger, BigInteger> Upgraded;//(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank);
 
-        [DisplayName("addpoint")]
+        [DisplayName("addPoint")]
         public static event Action<byte[], byte[], BigInteger, byte[]> AddPointed; //(tokenID, address, point, type)
 
         [DisplayName("bind")]
@@ -149,8 +149,8 @@ namespace NFT_Token
                     byte[] to = (byte[])args[1];
                     byte[] tokenId = (byte[])args[2];
                     if (from.Length != 20 || to.Length != 20 || tokenId.Length != 32) return false;
-
                     if (from != callscript) return false;
+
                     return TransferNft(from, to, tokenId);
                 }
 
@@ -196,7 +196,7 @@ namespace NFT_Token
                 }
 
                 //购买
-                if (method == "buy") //(assetId, txid, count, inviterTokenId, receivableValue)
+                if (method == "mintToken") //(assetId, txid, count, inviterTokenId, receivableValue)
                 {
                     if (args.Length != 5) return false;
                     return BuyNewNft((byte[])args[0], (byte[])args[1], (int)args[2], (byte[])args[3], (BigInteger)args[4]);

@@ -8,8 +8,8 @@
     <ProjectGuid>{5FAAFE49-83AF-4CFF-841C-438C29E5473F}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>PartnerContractMini</RootNamespace>
-    <AssemblyName>PartnerContractMini</AssemblyName>
+    <RootNamespace>PartnerContract</RootNamespace>
+    <AssemblyName>PartnerContract</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
