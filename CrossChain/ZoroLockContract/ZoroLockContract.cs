@@ -10,21 +10,13 @@ namespace ZoroLockContract
     public class ZoroLockContract : SmartContract
     {
         // superAdmin
-        private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
+        private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();               
 
-        public delegate object NEP5Contract(string method, object[] args);
+        [DisplayName("lock")]
+        public static event Action<byte[], byte[], BigInteger> EmitLocked; // (address, assetID, amount)
 
-        [DisplayName("addedToWhitelist")]
-        public static event Action<byte[]> EmitAddedToWhitelist; // (scriptHash)
-
-        [DisplayName("removedFromWhitelist")]
-        public static event Action<byte[]> EmitRemovedFromWhitelist; // (scriptHash)
-
-        [DisplayName("deposit")]
-        public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
-
-        [DisplayName("withdraw")]
-        public static event Action<byte[], byte[], BigInteger> EmitWithdrawn; // (address, assetID, amount)
+        [DisplayName("send")]
+        public static event Action<byte[], byte[], byte[], BigInteger> EmitSend; // (txid, address, assetID, amount)
 
         // Contract States
         private static readonly byte[] Active = { };       // 所有接口可用
@@ -33,7 +25,7 @@ namespace ZoroLockContract
 
         public static object Main(string operation, object[] args)
         {
-            var magicstr = "ZoroBankTest";
+            var magicstr = "ZoroBank";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
@@ -50,164 +42,113 @@ namespace ZoroLockContract
 
                 if (GetState() == AllStop) return false;
 
-                if (operation == "getBalance") return GetBalance((byte[])args[0], (byte[])args[1]); //address, assetID
-                if (operation == "getIsWhitelisted") return GetIsWhitelisted((byte[])args[0]);  // (assetID)
+                if (operation == "oneLevelMutiSign") return GetOneLevelMutiSign();
+                if (operation == "twoLevelMutiSign") return GetTwoLevelMutiSign();                
+                if (operation == "twoLevelAmount") return GetTwoLevelAmount();
 
                 if (GetState() != Active) return false;
+                               
+                //存钱
+                if (operation == "lock")
+                {
+                    if (args.Length != 3) return false;
+                    return Lock((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
+                }
 
-                //冻结
-                if (operation == "deposit")
+                //发钱
+                if (operation == "send") //txid, originator, assetId, amount
                 {
                     if (args.Length != 4) return false;
-                    return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
+                    return Send((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
                 }
 
-                //取钱 提现
-                if (operation == "withdraw") // originator, withdrawAssetId, withdrawAmount
+                if (!Runtime.CheckWitness(superAdmin)) return false;
+
+                if (operation == "setOneLevelMutiSign")
                 {
-                    if (args.Length != 4) return false;
-                    return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
+                    if (args.Length != 1) return false;
+                    var address = (byte[])args[0];
+                    if (address.Length != 20) return false;
+                    Storage.Put(Context(), "oneLevelMutiSignature", address);
                 }
 
-                if (operation == "addToWhitelist")
+                if (operation == "setTwoLevelMutiSign")
                 {
                     if (args.Length != 1) return false;
-                    return AddToWhitelist((byte[])args[0]);
-                }
-                if (operation == "removeFromWhitelist")
+                    var address = (byte[])args[0];
+                    if (address.Length != 20) return false;
+                    Storage.Put(Context(), "twoLevelMutiSignature", address);
+                }              
+
+                if (operation == "setTwoLevelAmount")
                 {
                     if (args.Length != 1) return false;
-                    return RemoveFromWhitelist((byte[])args[0]);
+                    var amount = (BigInteger)args[0];
+                    if (amount <= 0) return false;
+                    Storage.Put(Context(), "twoLevelAmount", amount);
                 }
+
             }
             return false;
         }
 
-        private static bool Deposit(byte[] assetId, byte[] from, BigInteger value, BigInteger isGlobal)
+        private static bool Lock(byte[] assetId, byte[] from, BigInteger value)
         {
             if (!Runtime.CheckWitness(from)) return false;
-            if (!GetIsWhitelisted(assetId)) return false;
+            if (assetId.Length != 20) return false;
             if (value <= 0) return false;
 
             byte[] to = ExecutionEngine.ExecutingScriptHash;
             bool success = false;
 
-            //全局资产 native nep5
-            if (isGlobal == 1)
-            {
-                success = NativeAsset.Call("TransferFrom", assetId, from, to, value);
-            }
-            else
-            {
-                var args = new object[] { from, to, value };
-                var contract = (NEP5Contract)assetId.ToDelegate();
-                success = (bool)contract("transferFrom", args);
-            }
-
+            success = NativeAsset.Call("TransferFrom", assetId, from, to, value);
+            
             if (success)
             {
-                IncreaseBalance(from, assetId, value);
-
-                EmitDepositted(from, assetId, value);
+                EmitLocked(from, assetId, value);
                 return true;
             }
             else
-                throw new Exception("Failed to transferFrom");
+                throw new Exception("Failed to TransferFrom");
         }
 
-        private static bool Withdrawal(byte[] originator, byte[] assetId, BigInteger amount, BigInteger isGlobal)
+        private static bool Send(byte[] txid, byte[] originator, byte[] assetId, BigInteger amount)
         {
-            if (!Runtime.CheckWitness(superAdmin)) return false;
-
+            if (assetId.Length != 20) return false;
             if (originator.Length != 20) return false;
+            if (amount <= 0) return false;
 
-            var balance = GetBalance(originator, assetId);
+            var txidUsedKey = TxidUsedKey(txid);
+            var txidIsUsed = Storage.Get(Context(), txidUsedKey);
+            if (txidIsUsed.Length > 0) return false;
 
-            if (balance < amount) return false;
-
-            bool success = false;
-            byte[] from = ExecutionEngine.ExecutingScriptHash;
-
-            if (isGlobal == 1)
+            var twoLevelAmount = GetTwoLevelAmount();
+            if (amount >= twoLevelAmount)
             {
-                success = NativeAsset.Call("TransferApp", assetId, from, originator, amount);
+                var twoLevelMutiSign = GetTwoLevelMutiSign();
+                if (!Runtime.CheckWitness(twoLevelMutiSign)) return false;
             }
             else
             {
-                var args = new object[] { from, originator, amount };
-                var contract = (NEP5Contract)assetId.ToDelegate();
-                success = (bool)contract("transferApp", args);
+                var oneLevelMutiSign = GetOneLevelMutiSign();
+                if (!Runtime.CheckWitness(oneLevelMutiSign)) return false;
             }
 
+            bool success = false;
+            byte[] from = ExecutionEngine.ExecutingScriptHash;
+            
+            success = NativeAsset.Call("TransferApp", assetId, from, originator, amount);
+           
             if (success)
             {
-                ReduceBalance(originator, assetId, amount);
+                Storage.Put(Context(), txidUsedKey, 1);
 
-                EmitWithdrawn(originator, assetId, amount);
+                EmitSend(txid, originator, assetId, amount);
                 return true;
             }
             else
                 throw new Exception("Failed to withdrawal transfer");
-        }
-
-        private static BigInteger GetBalance(byte[] address, byte[] assetID)
-        {
-            if (address.Length != 20 || assetID.Length != 20) return 0;
-            return Storage.Get(Context(), BalanceKey(address, assetID)).AsBigInteger();
-        }
-
-        private static bool IncreaseBalance(byte[] address, byte[] assetID, BigInteger amount)
-        {
-            if (amount < 1) throw new ArgumentOutOfRangeException();
-
-            byte[] key = BalanceKey(address, assetID);
-            BigInteger currentBalance = Storage.Get(Context(), key).AsBigInteger();
-            Storage.Put(Context(), key, currentBalance + amount);
-
-            return true;
-        }
-
-        private static bool ReduceBalance(byte[] address, byte[] assetID, BigInteger amount)
-        {
-            if (amount < 1) throw new ArgumentOutOfRangeException();
-
-            var key = BalanceKey(address, assetID);
-            var currentBalance = Storage.Get(Context(), key).AsBigInteger();
-            var newBalance = currentBalance - amount;
-
-            if (newBalance < 0) throw new Exception("Invalid available balance!");
-
-            if (newBalance > 0) Storage.Put(Context(), key, newBalance);
-            else Storage.Delete(Context(), key);
-
-            return true;
-        }
-
-        private static bool AddToWhitelist(byte[] scriptHash)
-        {
-            if (scriptHash.Length != 20) return false;
-            var key = WhitelistKey(scriptHash);
-            Storage.Put(Context(), key, 1);
-            EmitAddedToWhitelist(scriptHash);
-            return true;
-        }
-
-        private static bool RemoveFromWhitelist(byte[] scriptHash)
-        {
-            if (scriptHash.Length != 20) return false;
-            var key = WhitelistKey(scriptHash);
-            Storage.Delete(Context(), key);
-            EmitRemovedFromWhitelist(scriptHash);
-            return true;
-        }
-
-        private static bool GetIsWhitelisted(byte[] assetID)
-        {
-            if (assetID.Length != 20) return false;
-            if (Storage.Get(Context(), WhitelistKey(assetID)).AsBigInteger() == 1)
-                return true;
-            return false;
-        }
+        }       
 
         private static bool SetState(BigInteger setValue)
         {
@@ -220,11 +161,17 @@ namespace ZoroLockContract
             return true;
         }
 
+        private static byte[] GetOneLevelMutiSign()=> Storage.Get(Context(), "oneLevelMutiSignature");
+        private static byte[] GetTwoLevelMutiSign() => Storage.Get(Context(), "twoLevelMutiSignature");
+
+        private static BigInteger GetOneLevelAmount() => Storage.Get(Context(), "oneLevelAmount").AsBigInteger();
+        private static BigInteger GetTwoLevelAmount() => Storage.Get(Context(), "twoLevelAmount").AsBigInteger();
+
         private static byte[] GetState() => Storage.Get(Context(), "state");
 
         private static StorageContext Context() => Storage.CurrentContext;
 
         private static byte[] BalanceKey(byte[] originator, byte[] assetID) => "balance".AsByteArray().Concat(originator).Concat(assetID);
-        private static byte[] WhitelistKey(byte[] assetId) => "whiteList".AsByteArray().Concat(assetId);
+        private static byte[] TxidUsedKey(byte[] txid) => "txidUsed".AsByteArray().Concat(txid);
     }
 }

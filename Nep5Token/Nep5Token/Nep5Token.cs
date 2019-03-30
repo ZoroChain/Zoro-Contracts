@@ -25,7 +25,7 @@ namespace BCTContract
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
         private const ulong factor = 100000000;//精度
-        private const ulong oneHundredMillion = 100000000 * 10; //一亿
+        private const ulong oneHundredMillion = 100000000; //一亿
         private const ulong totalCoin = 1 * oneHundredMillion * factor;//总量
 
         public static object Main(string method, object[] args)
