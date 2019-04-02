@@ -33,12 +33,6 @@ namespace BrokerContract
         [DisplayName("removedFromWhitelist")]
         public static event Action<byte[]> EmitRemovedFromWhitelist; // (scriptHash)
 
-        [DisplayName("feeAddressSet")]
-        public static event Action<byte[]> EmitFeeAddressSet; // (address)
-
-        [DisplayName("dealerAddressSet")]
-        public static event Action<byte[]> EmitDealerAddressSet; // (address)
-
         // superAdmin
         private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
 
@@ -127,25 +121,40 @@ namespace BrokerContract
                     return CancelOffer(offerHash, deductFee);
                 }
 
-                // 管理员签名
-                if (!Runtime.CheckWitness(superAdmin)) return false;
-                
-                // == Init == 设置交易费收取地址,设置交易员
+                // 设置交易费收取地址,设置交易员,设置操作员
+                if (operation == "setOperator")
+                {
+                    if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    var opera = (byte[])args[0];
+                    if (opera.Length != 20) return false;
+                    Storage.Put(Context(), "operator", opera);
+                    return true;
+                }
+
                 if (operation == "initialize")
                 {
                     if (args.Length != 2) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return Initialize((byte[])args[0], (byte[])args[1]);
                 }
                 if (operation == "setDealerAddress")
                 {
                     if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return SetDealerAddress((byte[])args[0]);
                 }
                 if (operation == "setFeeAddress")
                 {
                     if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return SetFeeAddress((byte[])args[0]);
                 }
+
+                var operatorAddr = Storage.Get(Context(), "operator");
+                // 操作员签名
+                if (!Runtime.CheckWitness(operatorAddr)) return false;
+                
                 if (operation == "addToWhitelist")
                 {
                     if (args.Length != 1) return false;
@@ -518,7 +527,6 @@ namespace BrokerContract
         {
             if (feeAddress.Length != 20) return false;
             Storage.Put(Context(), "feeAddress", feeAddress);
-            EmitFeeAddressSet(feeAddress);
             return true;
         }
 
@@ -526,7 +534,6 @@ namespace BrokerContract
         {
             if (dealerAddress.Length != 20) return false;
             Storage.Put(Context(), "dealerAddress", dealerAddress);
-            EmitDealerAddressSet(dealerAddress);
             return true;
         }
 

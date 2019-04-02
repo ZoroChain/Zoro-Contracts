@@ -63,10 +63,21 @@ namespace BCTContract
                 // 如果合约不是 Active 状态、后面接口不可用
                 if (GetState() != Active) return false;
 
+                if (method == "setOperator")
+                {
+                    if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    var operatorAddr = (byte[])args[0];
+                    if (operatorAddr.Length != 20) return false;
+                    Storage.Put(Context(), "operator", operatorAddr);
+                    return true;
+                }
+
                 if (method == "deploy")
                 {
                     if (args.Length != 2) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    var operatorAddr = Storage.Get(Context(), "operator");
+                    if (!Runtime.CheckWitness(operatorAddr)) return false;
 
                     byte[] to = (byte[])args[0];
                     BigInteger amount = (BigInteger)args[1];
@@ -141,7 +152,6 @@ namespace BCTContract
             }
 
             return false;
-
         }
 
         public static string Name() => "ZoroBtc";//名称

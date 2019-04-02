@@ -114,7 +114,6 @@ namespace NFT_Token
 
                     return TransferNft((byte[])args[0], (byte[])args[1], (byte[])args[2]);
                 }
-
                 if (method == "approve")
                 {
                     if (args.Length != 3) return false;
@@ -129,7 +128,6 @@ namespace NFT_Token
 
                     return Approve(from, to, tokenId);
                 }
-
                 if (method == "transferFrom")
                 {
                     if (args.Length != 3) return false;
@@ -142,7 +140,6 @@ namespace NFT_Token
 
                     return TransferFrom(from, to, tokenId);
                 }
-
                 if (method == "transferApp")
                 {
                     byte[] from = (byte[])args[0];
@@ -168,8 +165,19 @@ namespace NFT_Token
                     return DestroyNft((byte[])args[0], (byte[])args[1]);
                 }
 
-                //*****  需要 adimin 权限   ******
-                if (!Runtime.CheckWitness(superAdmin)) return false;
+                if (method == "setOperator")
+                {
+                    if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    var opera = (byte[])args[0];
+                    if (opera.Length != 20) return false;
+                    Storage.Put(Context(), "operator", opera);
+                    return true;
+                }
+
+                //*****  需要 operator 权限   ******
+                var operatorAddr = Storage.Get(Context(), "operator");
+                if (!Runtime.CheckWitness(operatorAddr)) return false;
 
                 //设置参数
                 if (method == "setGather")
