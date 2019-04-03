@@ -286,11 +286,14 @@ namespace BrokerContract
 
         private static bool CancelOffer(byte[] offerHash, BigInteger deductFee)
         {
+            var dealerAddress = GetDealerAddress();
+            if (!Runtime.CheckWitness(dealerAddress)) return false;
+
             // Check that the offer exists
             Offer offer = GetOffer(offerHash);
             if (offer.MakerAddress.Length == 0) return false;
 
-            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;            
+            if (!Runtime.CheckWitness(offer.MakerAddress)) return false;
 
             if (deductFee > 0)
             {
