@@ -482,8 +482,10 @@ namespace NFT_Token
             BigInteger toUserNftCount = GetUserNftCount(to);
             Storage.Put(Context(), UserNftCountKey(to), fromUserNftCount + 1);
 
-            var fromTokenId = GetTokenIdByAddress(from);
+            var allowanceKey = AllowanceKey(tokenId);
+            Storage.Delete(Context(), allowanceKey);
 
+            var fromTokenId = GetTokenIdByAddress(from);
             //如果把绑定的卖了、就删除绑定
             if (fromTokenId == tokenId)
                 Storage.Delete(Context(), BindNftKey(from));

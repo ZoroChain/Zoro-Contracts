@@ -160,6 +160,9 @@ namespace NFTContract
             var toBalance = Storage.Get(Context(), BalanceKey(to)).AsBigInteger();
             Storage.Put(Context(), BalanceKey(to), toBalance + 1);
 
+            var allowanceKey = AllowanceKey(tokenId);
+            Storage.Delete(Context(), allowanceKey);
+
             SetTxInfo(from, to, tokenId);
 
             //notify
