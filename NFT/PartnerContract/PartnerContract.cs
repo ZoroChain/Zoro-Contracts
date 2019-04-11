@@ -39,6 +39,12 @@ namespace NFT_Token
         [DisplayName("destroy")]
         public static event Action<byte[], byte[]> Destroyed; //(address, tokenId)
 
+        [DisplayName("freeze")]
+        public static event Action<byte[], byte[]> Frozen; //(address, tokenId)
+
+        [DisplayName("unfreeze")]
+        public static event Action<byte[], byte[]> UnFrozen; //(address, tokenId)
+
         private static readonly byte[] Active = { };          //所有接口可用
         private static readonly byte[] Inactive = { 0x01 };   //只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
@@ -158,13 +164,6 @@ namespace NFT_Token
                     return BindNft((byte[])args[0], (byte[])args[1]);
                 }
 
-                //销毁
-                if (method == "destroy") //(address, tokenId)
-                {
-                    if (args.Length != 2) return false;
-                    return DestroyNft((byte[])args[0], (byte[])args[1]);
-                }
-
                 if (method == "setOperator")
                 {
                     if (args.Length != 1) return false;
@@ -240,40 +239,36 @@ namespace NFT_Token
                     return ReduceGrade((byte[])args[0]);
                 }
 
+                //Freeze
+                if (method == "freeze")
+                {
+                    if (args.Length != 2) return false;
+                    return FreezeNft((byte[])args[0], (byte[])args[1]);
+                }
+                //UnFreeze
+                if (method == "unfreeze")
+                {
+                    if (args.Length != 2) return false;
+                    return UnFreezeNft((byte[])args[0], (byte[])args[1]);
+                }
+                //销毁
+                if (method == "destroy") //(address, tokenId)
+                {
+                    if (args.Length != 2) return false;
+                    return DestroyNft((byte[])args[0], (byte[])args[1]);
+                }
             }
 
             return false;
         }
 
-        private static bool DestroyNft(byte[] address, byte[] tokenId)
-        {
-            if (!Runtime.CheckWitness(address)) return false;
-            if (tokenId.Length != 32) return false;
-            NFTInfo nftInfo = GetNftByTokenId(tokenId);
-            //不是自己的不能删除
-            if (nftInfo.Owner != address) return false;
-            //已经激活的不能删除
-            if (nftInfo.IsActivated) return false;
-
-            //删除 nftInfo
-            Storage.Delete(Context(), NftInfoKey(tokenId));
-
-            BigInteger userNftCount = GetUserNftCount(address);
-            if (userNftCount > 0)
-                Storage.Put(Context(), UserNftCountKey(address), userNftCount - 1);
-
-            //已发行数量减 1
-            BigInteger nftCount = Storage.Get(Context(), "allNftCount").AsBigInteger();
-            if (nftCount > 0)
-                Storage.Put(Context(), "allNftCount", nftCount - 1);
-
-            Destroyed(address, tokenId);
-            return true;
-        }
-
         private static bool Activate(byte[] tokenId, BigInteger oneLevelInviterPoint, BigInteger twoLevelInviterPoint)
         {
             var nftInfo = GetNftByTokenId(tokenId);
+
+            //已冻结
+            if (nftInfo.IsFrozen) return false;
+
             if (nftInfo.Owner.Length != 20) return false;
 
             //已经激活不能重复激活
@@ -364,6 +359,9 @@ namespace NFT_Token
             if (address.Length != 20 || tokenId.Length != 32) return false;
 
             NFTInfo nftInfo = GetNftByTokenId(tokenId);
+
+            //已冻结
+            if (nftInfo.IsFrozen) return false;
 
             //没激活的不能绑定
             if (!nftInfo.IsActivated) return false;
@@ -469,6 +467,9 @@ namespace NFT_Token
 
             var fromNftInfo = GetNftByTokenId(tokenId);
 
+            //已冻结
+            if (fromNftInfo.IsFrozen) return false;
+
             //from 没有证书、false
             if (fromNftInfo.Owner != from) return false;
 
@@ -502,6 +503,9 @@ namespace NFT_Token
             if (from == to) return true;
 
             var fromNftInfo = GetNftByTokenId(tokenId);
+
+            //已冻结
+            if (fromNftInfo.IsFrozen) return false;
 
             //from 没有证书、false
             if (fromNftInfo.Owner != from) return false;
@@ -541,6 +545,9 @@ namespace NFT_Token
 
             var fromNftInfo = GetNftByTokenId(tokenId);
 
+            //已冻结
+            if (fromNftInfo.IsFrozen) return false;
+
             //from 没有证书、false
             if (fromNftInfo.Owner != from) return false;
 
@@ -548,6 +555,76 @@ namespace NFT_Token
 
             //notify
             Approved(from, to, tokenId);
+            return true;
+        }
+
+        private static bool DestroyNft(byte[] address, byte[] tokenId)
+        {
+            if (tokenId.Length != 32) return false;
+            NFTInfo nftInfo = GetNftByTokenId(tokenId);
+            //只有冻结的可以删除
+            if (!nftInfo.IsFrozen) return false;
+
+            if (nftInfo.Owner != address) return false;
+            //已经激活的不能删除
+            if (nftInfo.IsActivated) return false;
+
+            //删除 nftInfo
+            Storage.Delete(Context(), NftInfoKey(tokenId));
+
+            var allowanceKey = AllowanceKey(tokenId);
+            Storage.Delete(Context(), allowanceKey);
+
+            BigInteger userNftCount = GetUserNftCount(address);
+            if (userNftCount > 0)
+                Storage.Put(Context(), UserNftCountKey(address), userNftCount - 1);
+
+            //已发行数量减 1
+            BigInteger nftCount = Storage.Get(Context(), "allNftCount").AsBigInteger();
+            if (nftCount > 0)
+                Storage.Put(Context(), "allNftCount", nftCount - 1);
+
+            Destroyed(address, tokenId);
+            return true;
+        }
+
+        private static bool FreezeNft(byte[] address, byte[] tokenId)
+        {
+            if (tokenId.Length != 32) return false;
+            NFTInfo nftInfo = GetNftByTokenId(tokenId);
+
+            //已经冻结
+            if (nftInfo.IsFrozen) return false;
+
+            if (nftInfo.Owner != address) return false;
+            //已经激活的不能冻结
+            if (nftInfo.IsActivated) return false;
+
+            nftInfo.IsFrozen = true;
+
+            SaveNftInfo(nftInfo);
+
+            Frozen(address, tokenId);
+
+            return true;
+        }
+
+        private static bool UnFreezeNft(byte[] address, byte[] tokenId)
+        {
+            if (tokenId.Length != 32) return false;
+            NFTInfo nftInfo = GetNftByTokenId(tokenId);
+
+            //未冻结
+            if (!nftInfo.IsFrozen) return false;
+
+            if (nftInfo.Owner != address) return false;            
+
+            nftInfo.IsFrozen = false;
+
+            SaveNftInfo(nftInfo);
+
+            UnFrozen(address, tokenId);
+
             return true;
         }
 
@@ -674,6 +751,7 @@ namespace NFT_Token
         public BigInteger AvailablePoint; //可用贡献值
         public byte[] InviterTokenId; //邀请者证书ID
         public bool IsActivated = false;//是否激活
+        public bool IsFrozen = false; //是否冻结
     }
 
 }

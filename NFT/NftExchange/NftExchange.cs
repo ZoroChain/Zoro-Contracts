@@ -9,7 +9,7 @@ namespace NftExchange
 {
     public class NftExchange : SmartContract
     {
-        public delegate object NEP5Contract(string method, object[] args);
+        public delegate object NftContract(string method, object[] args);
 
         [DisplayName("deposit")]
         public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
@@ -24,7 +24,7 @@ namespace NftExchange
         public static event Action<byte[], byte[], byte[], byte[], BigInteger, byte[], byte[], byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, nftContractHash, sellNftId, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
 
         [DisplayName("cancelOffer")]
-        public static event Action<byte[], byte[], byte[], byte[], byte[], BigInteger> EmitCancelled; // (address, offerHash, nftContractHash, nftId, feeAssetId, feeReturnAmount)
+        public static event Action<byte[], byte[], byte[], byte[], byte[], BigInteger, BigInteger> EmitCancelled; // (address, offerHash, nftContractHash, nftId, feeAssetId, feeReturnAmount, deductFee)
 
         [DisplayName("addedToWhitelist")]
         public static event Action<byte[]> EmitAddedToWhitelist; // (scriptHash, whitelistEnum)
@@ -104,14 +104,14 @@ namespace NftExchange
 
                 if (operation == "fillOffer")
                 {
-                    if (args.Length != 7) return false;
+                    if (args.Length != 5) return false;
 
                     BigInteger time = (BigInteger)args[6];
                     BigInteger curTime = Runtime.Time;
                     if (curTime - time > 300) return false;
 
-                    // fillerAddress, offerHash, fillAssetId, fillAmount, fillFeeAssetID, fillFeeAmount
-                    return FillOffer((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3], (byte[])args[4], (BigInteger)args[5]);
+                    // fillerAddress, offerHash, fillFeeAssetID, fillFeeAmount
+                    return FillOffer((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
                 }
 
                 //取消挂单
@@ -124,25 +124,40 @@ namespace NftExchange
                     return CancelOffer(offerHash, deductFee);
                 }
 
-                // 管理员签名
-                if (!Runtime.CheckWitness(superAdmin)) return false;
+                // 设置交易费收取地址,设置交易员,设置操作员
+                if (operation == "setOperator")
+                {
+                    if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    var opera = (byte[])args[0];
+                    if (opera.Length != 20) return false;
+                    Storage.Put(Context(), "operator", opera);
+                    return true;
+                }               
 
                 if (operation == "initialize")
                 {
                     if (args.Length != 2) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return Initialize((byte[])args[0], (byte[])args[1]);
                 }
                 if (operation == "setDealerAddress")
                 {
                     if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return SetDealerAddress((byte[])args[0]);
                 }
 
                 if (operation == "setFeeAddress")
                 {
                     if (args.Length != 1) return false;
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return SetFeeAddress((byte[])args[0]);
                 }
+
+                var operatorAddr = Storage.Get(Context(), "operator");
+                // 操作员签名
+                if (!Runtime.CheckWitness(operatorAddr)) return false;
                 if (operation == "addToWhitelist")
                 {
                     if (args.Length != 1) return false;
@@ -161,9 +176,11 @@ namespace NftExchange
         private static bool MakeOffer(byte[] makerAddress, byte[] nftContractHash, byte[] sellNftId, byte[] acceptAssetId, BigInteger price, byte[] feeAeestId, BigInteger feeAmount, BigInteger timeSpan)
         {
             var dealerAddress = GetDealerAddress();
+
             if (!Runtime.CheckWitness(dealerAddress)) return false;
             if (!Runtime.CheckWitness(makerAddress)) return false;
             if (dealerAddress == makerAddress) return false;
+
             if (!GetIsWhitelisted(nftContractHash) || !GetIsWhitelisted(feeAeestId)) return false;
 
             Offer offer = new Offer
@@ -183,7 +200,7 @@ namespace NftExchange
             if (Storage.Get(Context(), OfferKey(offerHash)).Length != 0) return false;                        
 
             // Check that the amounts > 0
-            if (feeAmount <= 0) return false;           
+            if (feeAmount < 1) return false;           
 
             // Check that asset IDs are valid
             if (nftContractHash.Length != 20 ||feeAeestId.Length != 20) return false;
@@ -192,12 +209,12 @@ namespace NftExchange
             if (feeAddress.Length != 20) return false;
 
             // Check that there is enough balance in native fees if using native fees
-            if (GetAvailabelBalance(makerAddress, feeAeestId) < feeAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(makerAddress, feeAeestId) < feeAmount) return false;
             // Reduce fee
             ReduceAvailabelBalance(makerAddress, feeAeestId, feeAmount);
 
             var args = new object[] { makerAddress, ExecutionEngine.ExecutingScriptHash, sellNftId };
-            var contract = (NEP5Contract)nftContractHash.ToDelegate();
+            var contract = (NftContract)nftContractHash.ToDelegate();
             bool success = (bool)contract("transferFrom", args);
 
             if(!success) throw new Exception("transferFrom failed!");
@@ -210,7 +227,7 @@ namespace NftExchange
             return true;
         }
 
-        private static bool FillOffer(byte[] fillerAddress, byte[] offerHash, byte[] fillAssetId, BigInteger fillAmount, byte[] fillFeeAssetID, BigInteger fillFeeAmount)
+        private static bool FillOffer(byte[] fillerAddress, byte[] offerHash, byte[] fillFeeAssetID, BigInteger fillFeeAmount)
         {
             var dealerAddress = GetDealerAddress();
 
@@ -227,48 +244,49 @@ namespace NftExchange
             Offer offer = GetOffer(offerHash);
             if (offer.Address.Length == 0) return false;
             if (fillerAddress == offer.Address) return false;
-            if (offer.AcceptAssetId != fillAssetId) return false;
 
-            if (fillAmount < 1) return false;
+            if (GetAvailabelBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) return false;
 
-            if (GetAvailabelBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(fillerAddress, offer.AcceptAssetId) < offer.Price) return false;
+
             // Reduce fees
             ReduceBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
             ReduceAvailabelBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
             //add fee
             IncreaseBalance(feeAddress, fillFeeAssetID, fillFeeAmount);
 
-            var fillerBalance = GetAvailabelBalance(fillerAddress, fillAssetId);
-            if (fillerBalance < fillAmount) throw new Exception("Invalid available balance!");
-            // Reduce balance from filler
-            ReduceBalance(fillerAddress, fillAssetId, fillAmount);
-            ReduceAvailabelBalance(fillerAddress, fillAssetId, fillAmount);
-
             //reduce offer.MakerAddress fee amount            
             ReduceBalance(offer.Address, offer.FeeAeestId, offer.FeeAmount);
             //add fee
             IncreaseBalance(feeAddress, offer.FeeAeestId, offer.FeeAmount);
 
+            // Reduce balance from filler
+            ReduceBalance(fillerAddress, offer.AcceptAssetId, offer.Price);
+            ReduceAvailabelBalance(fillerAddress, offer.AcceptAssetId, offer.Price);
+
             //add offer.MakerAddress amount
-            IncreaseBalance(offer.Address, fillAssetId, fillAmount);
-            IncreaseAvailableBalance(offer.Address, fillAssetId, fillAmount);                    
+            IncreaseBalance(offer.Address, offer.AcceptAssetId, offer.Price);
+            IncreaseAvailableBalance(offer.Address, offer.AcceptAssetId, offer.Price);                    
 
             var args = new object[] { ExecutionEngine.ExecutingScriptHash, fillerAddress, offer.TokenId };
-            var contract = (NEP5Contract)offer.NftContract.ToDelegate();
+            var contract = (NftContract)offer.NftContract.ToDelegate();
             bool success = (bool)contract("transferApp", args);
 
             if (!success) throw new Exception("transferApp failed!");
 
             Storage.Delete(Context(), OfferKey(offerHash));
 
-            // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, nftContractHash, offer.SellNftId, fillFeeAssetID, fillFeeAmount)
-            EmitFilled(fillerAddress, offerHash, offer.Address, fillAssetId, fillAmount, offer.NftContract, offer.TokenId, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, offer.FeeAmount);
+            // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, nftContractHash, offer.SellNftId, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, offer.FeeAmount)
+            EmitFilled(fillerAddress, offerHash, offer.Address, offer.AcceptAssetId, offer.Price, offer.NftContract, offer.TokenId, fillFeeAssetID, fillFeeAmount, offer.FeeAeestId, offer.FeeAmount);
 
             return true;
         }
 
         private static bool CancelOffer(byte[] offerHash, BigInteger deductFee)
         {
+            var dealerAddress = GetDealerAddress();
+            if (!Runtime.CheckWitness(dealerAddress)) return false;
+
             // Check that the offer exists
             Offer offer = GetOffer(offerHash);
             if (offer.Address == new byte[] { }) return false;
@@ -293,7 +311,7 @@ namespace NftExchange
             IncreaseAvailableBalance(offer.Address, offer.FeeAeestId, offer.FeeAmount);
 
             var args = new object[] { ExecutionEngine.ExecutingScriptHash, offer.Address, offer.TokenId };
-            var contract = (NEP5Contract)offer.NftContract.ToDelegate();
+            var contract = (NftContract)offer.NftContract.ToDelegate();
             bool success = (bool)contract("transferApp", args);
 
             if (!success) throw new Exception("transferApp failed!");
@@ -302,7 +320,7 @@ namespace NftExchange
             Storage.Delete(Context(), OfferKey(offerHash));
 
             // Notify (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
-            EmitCancelled(offer.Address, offerHash, offer.NftContract, offer.TokenId, offer.FeeAeestId, offer.FeeAmount);
+            EmitCancelled(offer.Address, offerHash, offer.NftContract, offer.TokenId, offer.FeeAeestId, offer.FeeAmount, deductFee);
             return true;
         }
 
@@ -335,7 +353,7 @@ namespace NftExchange
             if (isGlobal == 0)
             {
                 var args = new object[] { originator, to, value };
-                var contract = (NEP5Contract)assetId.ToDelegate();
+                var contract = (NftContract)assetId.ToDelegate();
                 success = (bool)contract("transferFrom", args);
             }
             if (success)
@@ -374,7 +392,7 @@ namespace NftExchange
             if (isGlobal == 0)
             {
                 var args = new object[] { from, originator, amount };
-                var contract = (NEP5Contract)assetId.ToDelegate();
+                var contract = (NftContract)assetId.ToDelegate();
                 success = (bool)contract("transferApp", args);
             }
 

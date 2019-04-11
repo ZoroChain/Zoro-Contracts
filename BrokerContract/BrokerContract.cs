@@ -19,7 +19,7 @@ namespace BrokerContract
         public static event Action<byte[], byte[], byte[], byte[], BigInteger, byte[], BigInteger, byte[], BigInteger, byte[], BigInteger> EmitFilled; // (fillerAddress, offerHash, offerAddress, fillAssetID, fillAmount, fillerGetAssetID, fillerGetAmount, fillFeeAssetID, fillFeeAmount, offerFeeAssetId, offerFeeAmount)
 
         [DisplayName("cancelOffer")]
-        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, BigInteger> EmitCancelled; // (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount)
+        public static event Action<byte[], byte[], byte[], BigInteger, byte[], BigInteger, BigInteger> EmitCancelled; // (address, offerHash, offerAssetId, returnAmount, feeAssetId, feeReturnAmount,deductFee)
 
         [DisplayName("deposit")]
         public static event Action<byte[], byte[], BigInteger> EmitDepositted; // (address, assetID, amount)
@@ -185,23 +185,22 @@ namespace BrokerContract
             var offerHash = Hash(offer);
             if (Storage.Get(Context(), OfferKey(offerHash)).Length != 0) return false;
 
-            if (!GetIsWhitelisted(offer.OfferAssetID) || !GetIsWhitelisted(offer.WantAssetID)) return false;
+            if (!GetIsWhitelisted(offer.OfferAssetID) || !GetIsWhitelisted(offer.WantAssetID) || !GetIsWhitelisted(offer.FeeAeestId))
+                return false;
 
             if (!(offer.OfferAmount > 0 && offer.WantAmount > 0 && offer.FeeAmount >= 0)) return false;
 
-            if (offer.OfferAssetID == offer.WantAssetID) return false;
-
-            if (offer.OfferAssetID.Length != 20 || offer.WantAssetID.Length != 20 || offer.FeeAeestId.Length != 20) return false;
+            if (offer.OfferAssetID == offer.WantAssetID) return false;            
 
             byte[] feeAddress = Storage.Get(Context(), "feeAddress");
             if (feeAddress.Length != 20) return false;
 
             // Check that there is enough balance in native fees if using native fees
-            if (GetAvailabelBalance(offer.MakerAddress, offer.FeeAeestId) < offer.FeeAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(offer.MakerAddress, offer.FeeAeestId) < offer.FeeAmount) return false;
             // Reduce fee
             ReduceAvailabelBalance(offer.MakerAddress, offer.FeeAeestId, offer.FeeAmount);
 
-            if (GetAvailabelBalance(offer.MakerAddress, offer.OfferAssetID) < offer.OfferAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(offer.MakerAddress, offer.OfferAssetID) < offer.OfferAmount) return false;
             // Reduce available balance for the offered asset and amount
             ReduceAvailabelBalance(offer.MakerAddress, offer.OfferAssetID, offer.OfferAmount);
 
@@ -238,18 +237,19 @@ namespace BrokerContract
             if (fillAmount < 1) return false;              
 
             //filler 可以买到的数量
-            BigInteger amountFillerGet = (fillAmount * offer.OfferAmount) / offer.WantAmount;
-            BigInteger feeAmount = (amountFillerGet * offer.FeeAmount) / offer.OfferAmount;
+            BigInteger amountFillerGet = fillAmount * offer.OfferAmount / offer.WantAmount;
+
+            //扣掉的交易费
+            BigInteger feeAmount = offer.FeeAmount * amountFillerGet / offer.OfferAmount;
 
             // Check that you cannot take more than available
             if (amountFillerGet < 1) return false;
             if (amountFillerGet > offer.AvailableAmount) return false;
             if (feeAmount > offer.AvailableFeeAmount) return false;
 
-            if (GetAvailabelBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(fillerAddress, fillFeeAssetID) < fillFeeAmount) return false;
 
-            var fillerBalance = GetAvailabelBalance(fillerAddress, offer.WantAssetID);
-            if (fillerBalance < fillAmount) throw new Exception("Invalid available balance!");
+            if (GetAvailabelBalance(fillerAddress, fillAssetId) < fillAmount) return false;
 
             // Reduce fees
             ReduceBalance(fillerAddress, fillFeeAssetID, fillFeeAmount);
@@ -261,8 +261,8 @@ namespace BrokerContract
             IncreaseBalance(feeAddress, offer.FeeAeestId, feeAmount);
 
             // Reduce balance from filler
-            ReduceBalance(fillerAddress, offer.WantAssetID, fillAmount);
-            ReduceAvailabelBalance(fillerAddress, offer.WantAssetID, fillAmount);
+            ReduceBalance(fillerAddress, fillAssetId, fillAmount);
+            ReduceAvailabelBalance(fillerAddress, fillAssetId, fillAmount);
             //add offer.MakerAddress amount
             IncreaseBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);            
             IncreaseAvailableBalance(offer.MakerAddress, offer.WantAssetID, fillAmount);
@@ -364,9 +364,9 @@ namespace BrokerContract
 
             var key = BalanceKey(address, assetID);
             var currentBalance = Storage.Get(Context(), key).AsBigInteger();
-            var newBalance = currentBalance - amount;
 
-            if (newBalance < 0) throw new Exception("Invalid available balance!");
+            if (currentBalance < amount) throw new Exception("Invalid available balance!");
+            var newBalance = currentBalance - amount;
 
             if (newBalance > 0) Storage.Put(Context(), key, newBalance);
             else Storage.Delete(Context(), key);
@@ -380,9 +380,9 @@ namespace BrokerContract
 
             var key = AvailableBalanceKey(address, assetID);
             var currentBalance = Storage.Get(Context(), key).AsBigInteger();
-            var newBalance = currentBalance - amount;
 
-            if (newBalance < 0) throw new Exception("Invalid available balance!");
+            if (currentBalance < amount) throw new Exception("Invalid available balance!");
+            var newBalance = currentBalance - amount;
 
             if (newBalance > 0) Storage.Put(Context(), key, newBalance);
             else Storage.Delete(Context(), key);
@@ -428,8 +428,8 @@ namespace BrokerContract
                 throw new Exception("Failed to transferFrom");
         }
 
-        /***********
-         * Withdrawal *
+        /************
+         *Withdrawal*
          ***********/
         private static bool Withdrawal(byte[] originator, byte[] assetId, BigInteger amount, BigInteger isGlobal)
         {

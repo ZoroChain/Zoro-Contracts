@@ -18,7 +18,7 @@ namespace BCTContract
         public static event Action<byte[], byte[], BigInteger> Approved;//(byte[] from, byte[] to, BigInteger value)
 
         //管理员账户，改成自己测试用的的
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AcQLYjGbQU2bEQ8RKFXUcf8XvromfUQodq");
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("ANnUWBdxpkpSaJzjAHw4Dk2gshX5WW3Guf");
 
         private static readonly byte[] Active = { };       // 所有接口可用
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
@@ -155,9 +155,9 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "ZoroEth";//名称
+        public static string Name() => "Zoro-Neo";//名称
 
-        public static string Symbol() => "ETH";//简称
+        public static string Symbol() => "NEO";//简称
 
         public static byte Decimals() => 8;//精度
 
