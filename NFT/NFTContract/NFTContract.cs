@@ -56,15 +56,14 @@ namespace NFTContract
                 {
                     if (args.Length != 3) return false;
                     var owner = (byte[])args[0];
-                    var uri = (byte[])args[1]; 
-                    var properties = (byte[])args[2];
+                    var properties = (byte[])args[1];
 
                     if (!Runtime.CheckWitness(superAdmin)) return false;
 
-                    if (owner.Length != 20 || uri.Length == 0) return false;
+                    if (owner.Length != 20) return false;
                     if (properties.Length > 2048) return false;
 
-                    return MintNFT(owner, uri, properties);
+                    return MintNFT(owner, properties);
                 }
 
                 if (method == "modifyUri")
@@ -73,8 +72,11 @@ namespace NFTContract
                     if (args.Length != 2) return false;
                     var tokenId = (byte[])args[0];
                     var uri = (byte[])args[1];
-                    var token = Storage.Get(Context(), TokenUriKey(tokenId));
-                    if (token.Length == 0) return false;
+
+                    var addr = Storage.Get(Context(), TokenOwnerKey(tokenId));
+                    if (addr.Length != 20) return false;
+
+                    if (uri.Length == 0) return false;
                     Storage.Put(Context(), TokenUriKey(tokenId), uri);
                     return true;
                 }
@@ -85,8 +87,11 @@ namespace NFTContract
                     if (args.Length != 2) return false;
                     var tokenId = (byte[])args[0];
                     var RwData = (byte[])args[1];
-                    var token = Storage.Get(Context(), TokenRwDataKey(tokenId));
-                    if (token.Length == 0) return false;
+
+                    var addr = Storage.Get(Context(), TokenOwnerKey(tokenId));
+                    if (addr.Length != 20) return false;
+
+                    if (RwData.Length == 0) return false;
                     Storage.Put(Context(), TokenRwDataKey(tokenId), RwData);
                     return true;
                 }
@@ -210,13 +215,12 @@ namespace NFTContract
             return true;
         }
 
-        private static bool MintNFT(byte[] owner, byte[] uri, byte[] properties)
+        private static bool MintNFT(byte[] owner, byte[] properties)
         {
-            var tokenId = Hash256(properties.Concat(uri));
+            var tokenId = Hash256(properties);
             var addr = Storage.Get(Context(), TokenOwnerKey(tokenId));
             if (addr.Length > 0) return false;
 
-            Storage.Put(Context(), TokenUriKey(tokenId), uri);
             Storage.Put(Context(), PropertiesKey(tokenId), properties);
             Storage.Put(Context(), TokenOwnerKey(tokenId), owner);
 

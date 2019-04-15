@@ -12,7 +12,7 @@ The operations of the NFT template contract are:
 * approve(from, to, token_id): approve third party to spend a token
 * balanceOf(owner): returns owner's current total tokens owned
 * getTxInfo(txid): returns transfer's info
-* mintToken(owner,URI, properties): create a new NFT token
+* mintToken(owner, properties): create a new NFT token
 * modifyRwData(token_id, RwData): modify token's read-write data
 * modifyURI(token_id, URI): modify a token's URI
 * name(): returns name of token
@@ -26,6 +26,11 @@ The operations of the NFT template contract are:
 * transferFrom(from, to, token_id): transfers a token by authorized spender
 * uri(token_id): returns a token's URI
 
+#### Events
+The events of the NFT template contract are:
+
+* transfer(byte[] from , byte[] to, byte[] TokenId):transfers a token
+* mintToken(byte[] address, byte[] TokenId): create a new NFT token
 
 ### Properties
 

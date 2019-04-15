@@ -38,6 +38,9 @@ namespace NftExchange
         [DisplayName("dealerAddressSet")]
         public static event Action<byte[]> EmitDealerAddressSet; // (address)
 
+        [DisplayName("operatorAddressSet")]
+        public static event Action<byte[]> EmitOperatorAddressSet; // (address)
+
         // Contract States
         private static readonly byte[] Active = { };       // 所有接口可用
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
@@ -106,7 +109,7 @@ namespace NftExchange
                 {
                     if (args.Length != 5) return false;
 
-                    BigInteger time = (BigInteger)args[6];
+                    BigInteger time = (BigInteger)args[4];
                     BigInteger curTime = Runtime.Time;
                     if (curTime - time > 300) return false;
 
@@ -132,6 +135,8 @@ namespace NftExchange
                     var opera = (byte[])args[0];
                     if (opera.Length != 20) return false;
                     Storage.Put(Context(), "operator", opera);
+
+                    EmitOperatorAddressSet(opera);
                     return true;
                 }               
 

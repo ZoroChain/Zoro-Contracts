@@ -147,9 +147,9 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "TestCoin3";//名称
+        public static string Name() => "HZT";//名称
 
-        public static string Symbol() => "TC3";//简称
+        public static string Symbol() => "HZT";//简称
 
         public static byte Decimals() => 8;//精度
 
