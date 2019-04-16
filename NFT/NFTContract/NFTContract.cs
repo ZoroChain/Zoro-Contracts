@@ -14,10 +14,10 @@ namespace NFTContract
     public class NFTContract : SmartContract
     {
         [DisplayName("approve")]
-        public static event Action<byte[], byte[], byte[]> Approved;//(byte[] owner, byte[] to, byte[] TokenId);
+        public static event Action<byte[], byte[], byte[]> Approved;//(byte[] owner, byte[] to, byte[] TokenId); 
 
         [DisplayName("mintToken")]
-        public static event Action<byte[], byte[]> MintedToken;//(byte[] owner, byte[] TokenId);
+        public static event Action<byte[], byte[]> MintedToken;//(byte[] to, byte[] tokenId);
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], byte[]> Transferred; //(byte[] from , byte[] to, byte[] TokenId)
@@ -41,6 +41,7 @@ namespace NFTContract
                 //invoke
                 if (method == "name") return "NFT";
                 if (method == "symbol") return "NFT";
+                if (method == "supportedStandards") return "{\"NEP-10\"}";
                 if (method == "totalSupply") return Storage.Get(Context(), TotalSupplyKey()).AsBigInteger();
                 if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
                 if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));                
@@ -231,7 +232,7 @@ namespace NFTContract
             var keyBalance = BalanceKey(owner);
             BigInteger balance = Storage.Get(Context(), keyBalance).AsBigInteger();
             Storage.Put(Context(), keyBalance, balance + 1);
-      
+
             //notify
             MintedToken(owner, tokenId);
             return true;

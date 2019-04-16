@@ -15,8 +15,11 @@ namespace NFT_Token
     {        
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");
 
-        [DisplayName("mintToken")]
+        [DisplayName("buy")]
         public static event Action<byte[], byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, byte[] inviterTokenId, int num, int Value, Map Nfts TokenId);
+
+        [DisplayName("mintToken")]
+        public static event Action<byte[], byte[]> MintedToken;//(byte[] to, byte[] tokenId);
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], byte[]> Transferred;//(byte[] from, byte[] to, byte[] tokenId);
@@ -96,6 +99,7 @@ namespace NFT_Token
                 if (method == "ownerOf") return GetOwnerByTokenId((byte[])args[0]);
                 if (method == "balanceOf") return GetUserNftCount((byte[])args[0]);
                 if (method == "properties") return GetNftByTokenId((byte[])args[0]);
+                if (method == "supportedStandards") return "{\"NEP-10\"}";
 
                 if (method == "getBindNft") return GetTokenIdByAddress((byte[])args[0]);               
                 if (method == "getGather") return Storage.Get(Context(), "gatherAddress");
@@ -336,6 +340,8 @@ namespace NFT_Token
                 SaveNftInfo(nftInfo);
 
                 newNftsMap[nftInfo.TokenId] = 1;
+
+                MintedToken(address, nftInfo.TokenId);
             }
 
             BigInteger userNftCount = GetUserNftCount(address);
@@ -454,6 +460,7 @@ namespace NFT_Token
             Storage.Put(Context(), "activatedCount", 1);
 
             //notify
+            MintedToken(address, newNftInfo.TokenId);
             Bought(address, null, 1, 0, nftsMap);
 
             Storage.Put(Context(), "initDeploy", 1);

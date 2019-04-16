@@ -18,6 +18,7 @@ The operations of the NFT template contract are:
 * name(): returns name of token
 * ownerOf(token_id): returns owner of a token
 * properties(token_id): returns a token's properties data
+* supportedStandards(): returns NEP-10
 * symbol(): returns token symbol
 * totalSupply(): returns the total token supply deployed in the system
 * tokenRwData(tokein_id): returns token's read-write data

@@ -59,6 +59,7 @@ namespace BCTContract
                 if (method == "balanceOf") return BalanceOf((byte[])args[0]);
                 if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
                 if (method == "allowance") return GetAllowance((byte[])args[0], (byte[])args[1]);
+                if (method == "supportedStandards") return "{\"NEP-5\"}";
 
                 // 如果合约不是 Active 状态、后面接口不可用
                 if (GetState() != Active) return false;

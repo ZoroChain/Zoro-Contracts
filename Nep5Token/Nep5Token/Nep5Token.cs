@@ -60,6 +60,7 @@ namespace BCTContract
                 if (method == "name") return Name();
                 if (method == "symbol") return Symbol();
                 if (method == "decimals") return Decimals();
+                if (method == "supportedStandards") return "{\"NEP-5\"}";
                 if (method == "balanceOf") return BalanceOf((byte[])args[0]);
                 if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
                 if (method == "allowance") return GetAllowance((byte[])args[0], (byte[])args[1]);

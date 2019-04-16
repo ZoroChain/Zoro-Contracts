@@ -13,4 +13,5 @@ Nep.z1 是 Zoro 上发布代币资产的参考标准，其在保留了 NEO Nep5 
 * transfer：正常交易，参数：from，to，value，需要 from 签名
 * transferApp：合约的转账交易，只允许其他合约调用并且 from 是调用合约的 script hash，参数：from，to，value
 * approve：授权可以从 from 转出到 to 的数额，参数：from，to，value，需要 from 签名，授权以后其他合约可以转走该笔资产；
-* transferFrom：approve 后的转账交易，参数：from，to，value
+* transferFrom：approve 后的转账交易，参数：from，to，value；
+* supportedStandards: 返回合约符合的标准 return "{\"NEP-5\"}"
