@@ -275,7 +275,9 @@ namespace NFT_Token
                     if (properties.Length > 2048) return false;
 
                     var nftInfo = GetNftByTokenId(tokenId);
-                    if (nftInfo.Owner.Length != 20) return false;                                        
+                    if (nftInfo.Owner.Length != 20) return false;
+                    //冻结的不能修改
+                    if (nftInfo.IsFrozen) return false;
 
                     Storage.Put(Context(), PropertiesKey(tokenId), properties);
                     ModifyProperties(tokenId, properties);
@@ -416,6 +418,9 @@ namespace NFT_Token
             if (v.Length != 0) return false;
 
             var nftInfo = GetNftByTokenId(tokenId);
+
+            //冻结的不能升级
+            if (nftInfo.IsFrozen) return false;
 
             byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
             //获取 bct 转账信息
@@ -601,6 +606,8 @@ namespace NFT_Token
 
             //删除 nftInfo
             Storage.Delete(Context(), NftInfoKey(tokenId));
+
+            Storage.Delete(Context(), PropertiesKey(tokenId));
 
             var allowanceKey = AllowanceKey(tokenId);
             Storage.Delete(Context(), allowanceKey);
