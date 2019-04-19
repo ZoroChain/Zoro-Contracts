@@ -148,9 +148,9 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "HZT";//名称
+        public static string Name() => "ABC";//名称
 
-        public static string Symbol() => "HZT";//简称
+        public static string Symbol() => "ABC";//简称
 
         public static byte Decimals() => 8;//精度
 

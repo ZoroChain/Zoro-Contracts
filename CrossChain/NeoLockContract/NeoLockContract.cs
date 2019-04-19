@@ -72,6 +72,8 @@ namespace ZoroLockContract
                     var address = (byte[])args[0];
                     if (address.Length != 20) return false;
                     Storage.Put(Context(), "oneLevelMutiSignature", address);
+                    Runtime.Notify("setOneLevelMutiSign", address);
+                    return true;
                 }
 
                 if (operation == "setTwoLevelMutiSign")
@@ -80,6 +82,8 @@ namespace ZoroLockContract
                     var address = (byte[])args[0];
                     if (address.Length != 20) return false;
                     Storage.Put(Context(), "twoLevelMutiSignature", address);
+                    Runtime.Notify("twoLevelMutiSignature", address);
+                    return true;
                 }              
 
                 if (operation == "setTwoLevelAmount")
@@ -88,6 +92,8 @@ namespace ZoroLockContract
                     var amount = (BigInteger)args[0];
                     if (amount <= 0) return false;
                     Storage.Put(Context(), "twoLevelAmount", amount);
+                    Runtime.Notify("setTwoLevelAmount", amount);
+                    return true;
                 }
 
             }

@@ -71,6 +71,7 @@ namespace BCTContract
                     var operatorAddr = (byte[])args[0];
                     if (operatorAddr.Length != 20) return false;
                     Storage.Put(Context(), "operator", operatorAddr);
+                    Runtime.Notify("setOperator", operatorAddr);
                     return true;
                 }
 
@@ -156,7 +157,7 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "Zoro-Neo";//名称
+        public static string Name() => "Zoro-NEO";//名称
 
         public static string Symbol() => "NEO";//简称
 

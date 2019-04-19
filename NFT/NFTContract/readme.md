@@ -14,7 +14,7 @@ The operations of the NFT template contract are:
 * getTxInfo(txid): returns transfer's info
 * mintToken(owner, properties): create a new NFT token
 * modifyRwData(token_id, RwData): modify token's read-write data
-* modifyURI(token_id, URI): modify a token's URI
+* modifyProperties(token_id, newProperties): modify token's read-write data
 * name(): returns name of token
 * ownerOf(token_id): returns owner of a token
 * properties(token_id): returns a token's properties data
@@ -25,7 +25,6 @@ The operations of the NFT template contract are:
 * transfer(from, to, token_id): transfers a token
 * transferApp(from, to, token_id): transfers a token, the from must be calling contract hash
 * transferFrom(from, to, token_id): transfers a token by authorized spender
-* uri(token_id): returns a token's URI
 
 #### Events
 The events of the NFT template contract are:
@@ -38,21 +37,8 @@ The events of the NFT template contract are:
 The properties is the basic information of NFT, including name, description and other fields. It has a uniform json format. When NFT is created, the json properties will be serialized into byte array and stored in NFT properties, which is deserialized into json when used externally, json properties like this:
 ```
 {
-    "title": "NFT Properties",
-    "type": "object",
-    "properties": {
-        "name": {
-            "type": "string",
-            "description": "Identifies the asset to which this NFT represents"
-        },
-        "description": {
-            "type": "string",
-            "description": "Describes the asset to which this NFT represents"
-        },
-        "image": {
-            "type": "string",
-            "description": "A URI pointing to a resource with mime type image/* representing the asset to which this NFT represents. Consider making any images at a width between 320 and 1080 pixels and aspect ratio between 1.91:1 and 4:5 inclusive."
-        }
-    }
+    "name": "Identifies the asset to which this NFT represents" ,
+    "description": "Describes the asset to which this NFT represents",
+    "url": "https://www.xxx.cn/" 
 }
 ```

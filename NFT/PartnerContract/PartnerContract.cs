@@ -13,13 +13,13 @@ namespace NFT_Token
     /// </summary>
     public class NFTContract : SmartContract
     {        
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");
-
-        [DisplayName("buy")]
-        public static event Action<byte[], byte[], int, BigInteger, Map<byte[], int>> Bought;//(byte[] owner, byte[] inviterTokenId, int num, int Value, Map Nfts TokenId);
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");               
 
         [DisplayName("mintToken")]
-        public static event Action<byte[], byte[]> MintedToken;//(byte[] to, byte[] tokenId);
+        public static event Action<byte[], byte[], byte[], byte[]> MintedToken;//(byte[] to, byte[] tokenId, byte[] properties, byte[] inviterTokenId);
+
+        [DisplayName("modifyProperties")]
+        public static event Action<byte[], byte[]> ModifyProperties; //(byte[] tokenId, byte[] newProperties )
 
         [DisplayName("transfer")]
         public static event Action<byte[], byte[], byte[]> Transferred;//(byte[] from, byte[] to, byte[] tokenId);
@@ -98,7 +98,8 @@ namespace NFT_Token
                 if (method == "allowance") return Storage.Get(Context(), AllowanceKey((byte[])args[0]));
                 if (method == "ownerOf") return GetOwnerByTokenId((byte[])args[0]);
                 if (method == "balanceOf") return GetUserNftCount((byte[])args[0]);
-                if (method == "properties") return GetNftByTokenId((byte[])args[0]);
+                if (method == "getNftInfo") return GetNftByTokenId((byte[])args[0]);
+                if (method == "properties") return Storage.Get(Context(), PropertiesKey((byte[])args[0]));
                 if (method == "supportedStandards") return "{\"NEP-10\"}";
 
                 if (method == "getBindNft") return GetTokenIdByAddress((byte[])args[0]);               
@@ -175,6 +176,7 @@ namespace NFT_Token
                     var opera = (byte[])args[0];
                     if (opera.Length != 20) return false;
                     Storage.Put(Context(), "operator", opera);
+                    Runtime.Notify("setOperator", opera);
                     return true;
                 }
 
@@ -187,6 +189,7 @@ namespace NFT_Token
                 {
                     byte[] gatherAdress = (byte[])args[0];
                     Storage.Put(Context(), "gatherAddress", gatherAdress);
+                    Runtime.Notify("setGather", gatherAdress);
                     return true;
                 }
 
@@ -195,6 +198,7 @@ namespace NFT_Token
                 {
                     BigInteger total = (BigInteger)args[0];
                     Storage.Put(Context(), "totalCount", total);
+                    Runtime.Notify("setTotal", total);
                     return true;
                 }
 
@@ -261,6 +265,22 @@ namespace NFT_Token
                     if (args.Length != 2) return false;
                     return DestroyNft((byte[])args[0], (byte[])args[1]);
                 }
+
+                if (method == "modifyProperties")
+                {                    
+                    if (args.Length != 2) return false;
+                    var tokenId = (byte[])args[0];
+                    var properties = (byte[])args[1];
+
+                    if (properties.Length > 2048) return false;
+
+                    var nftInfo = GetNftByTokenId(tokenId);
+                    if (nftInfo.Owner.Length != 20) return false;                                        
+
+                    Storage.Put(Context(), PropertiesKey(tokenId), properties);
+                    ModifyProperties(tokenId, properties);
+                    return true;
+                }
             }
 
             return false;
@@ -320,38 +340,38 @@ namespace NFT_Token
             BigInteger nftCount = Storage.Get(Context(), "allNftCount").AsBigInteger();
             BigInteger totalCount = Storage.Get(Context(), "totalCount").AsBigInteger();
             if (nftCount + count > totalCount) return false;
-
             byte[] gatherAddress = Storage.Get(Context(), "gatherAddress");
-
+                     
             //获取 bct 转账信息
             TransferLog tx = NativeAsset.GetTransferLog(assetId, txid);
-
+           
             //钱没给够或收款地址不对 false
             if (tx.From.Length == 0 || tx.To != gatherAddress || (BigInteger)tx.Value < receivableValue) return false;
-
+         
             byte[] address = tx.From;
-
-            Map<byte[], int> newNftsMap = new Map<byte[], int>();
-
+           
             for (int i = 1; i <= count; i++)
             {
                 NFTInfo nftInfo = CreateNft(address, inviterTokenId, i);
 
+                int num = (int)nftCount + 1;
+                string properties = "{\"name\": \"Partner certificate\" , \"description\": \"{" + num + "}\", \"url\":\"\" }";
+                byte[] propertiesByteArray = properties.AsByteArray();
+                
+                byte[] propertiesKey = PropertiesKey(nftInfo.TokenId);
+
+                Storage.Put(Context(), propertiesKey, propertiesByteArray);
+            
                 SaveNftInfo(nftInfo);
 
-                newNftsMap[nftInfo.TokenId] = 1;
-
-                MintedToken(address, nftInfo.TokenId);
+                MintedToken(address, nftInfo.TokenId, propertiesByteArray, inviterTokenId);
             }
 
             BigInteger userNftCount = GetUserNftCount(address);
             Storage.Put(Context(), UserNftCountKey(address), userNftCount + count);
 
             //更新数量
-            Storage.Put(Context(), "allNftCount", nftCount + count);
-
-            //notify
-            Bought(address, inviterTokenId, count, (BigInteger)tx.Value, newNftsMap);
+            Storage.Put(Context(), "allNftCount", nftCount + count);                        
 
             SetTxUsed(txid);
 
@@ -420,17 +440,17 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool ReduceGrade(byte[] tokeId)
+        private static bool ReduceGrade(byte[] tokenId)
         {
-            if (tokeId.Length != 32) return false;
-            var nftInfo = GetNftByTokenId(tokeId);
+            if (tokenId.Length != 32) return false;
+            var nftInfo = GetNftByTokenId(tokenId);
             if (nftInfo.Owner.Length != 20) return false;
             if (nftInfo.Grade < 2) return false;
             nftInfo.Grade -= 1;
             SaveNftInfo(nftInfo);
 
             //(byte[] tokenId, byte[] owner, BigInteger lastRank, BigInteger nowRank)
-            Upgraded(tokeId, nftInfo.Owner, nftInfo.Grade + 1, nftInfo.Grade);
+            Upgraded(tokenId, nftInfo.Owner, nftInfo.Grade + 1, nftInfo.Grade);
             return true;
         }
 
@@ -448,8 +468,12 @@ namespace NFT_Token
             //创始证书自动激活
             newNftInfo.IsActivated = true;
 
-            Map<byte[], int> nftsMap = new Map<byte[], int>();
-            nftsMap[newNftInfo.TokenId] = 1;
+            string properties = "{\"name\": \"Partner certificate\" , \"description\": \"{" + 1 + "}\", \"url\":\"\" }";
+            byte[] propertiesByteArray = properties.AsByteArray();
+
+            byte[] propertiesKey = PropertiesKey(newNftInfo.TokenId);
+
+            Storage.Put(Context(), propertiesKey, propertiesByteArray);
 
             //保存nft信息
             SaveNftInfo(newNftInfo);
@@ -460,8 +484,7 @@ namespace NFT_Token
             Storage.Put(Context(), "activatedCount", 1);
 
             //notify
-            MintedToken(address, newNftInfo.TokenId);
-            Bought(address, null, 1, 0, nftsMap);
+            MintedToken(address, newNftInfo.TokenId, propertiesByteArray, null);
 
             Storage.Put(Context(), "initDeploy", 1);
 
@@ -738,6 +761,7 @@ namespace NFT_Token
         private static byte[] TxInfoKey(byte[] txid) => new byte[] { 0x13 }.Concat(txid);
         private static byte[] BctTxidUsedKey(byte[] txid) => new byte[] { 0x14 }.Concat(txid);
         private static byte[] AllowanceKey(byte[] tokenId) => new byte[] { 0x15 }.Concat(tokenId);
+        private static byte[] PropertiesKey(byte[] tokenId) => new byte[] { 0x16 }.Concat(tokenId);
 
     }
 
