@@ -205,16 +205,17 @@ namespace NFT_Token
                 //第一本创世证书发行
                 if (method == "deploy") //(address)
                 {
-                    if (args.Length != 1) return false;
+                    if (args.Length != 2) return false;
                     var address = (byte[])args[0];
-                    return DeployFirstNft(address);
+                    byte[] properties = (byte[])args[1];
+                    return DeployFirstNft(address, properties);
                 }
 
                 //购买
                 if (method == "mintToken") //(assetId, txid, count, inviterTokenId, receivableValue)
                 {
-                    if (args.Length != 5) return false;
-                    return BuyNewNft((byte[])args[0], (byte[])args[1], (int)args[2], (byte[])args[3], (BigInteger)args[4]);
+                    if (args.Length != 6) return false;
+                    return BuyNewNft((byte[])args[0], (byte[])args[1], (int)args[2], (byte[])args[3], (BigInteger)args[4], (byte[])args[5]);
                 }
 
                 //激活
@@ -325,7 +326,7 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool BuyNewNft(byte[] assetId, byte[] txid, int count, byte[] inviterTokenId, BigInteger receivableValue)
+        private static bool BuyNewNft(byte[] assetId, byte[] txid, int count, byte[] inviterTokenId, BigInteger receivableValue, byte[] properties)
         {
             if (assetId.Length != 20 || txid.Length != 32 || inviterTokenId.Length != 32) return false;
             if (count < 1 || receivableValue < 1) return false;
@@ -356,17 +357,15 @@ namespace NFT_Token
             {
                 NFTInfo nftInfo = CreateNft(address, inviterTokenId, i);
 
-                int num = (int)nftCount + 1;
-                string properties = "{\"name\": \"Partner certificate\" , \"description\": \"{" + num + "}\", \"url\":\"\" }";
-                byte[] propertiesByteArray = properties.AsByteArray();
+                int num = (int)nftCount + i;                          
                 
                 byte[] propertiesKey = PropertiesKey(nftInfo.TokenId);
 
-                Storage.Put(Context(), propertiesKey, propertiesByteArray);
+                Storage.Put(Context(), propertiesKey, properties);
             
                 SaveNftInfo(nftInfo);
 
-                MintedToken(address, nftInfo.TokenId, propertiesByteArray, inviterTokenId);
+                MintedToken(address, nftInfo.TokenId, properties, inviterTokenId);
             }
 
             BigInteger userNftCount = GetUserNftCount(address);
@@ -459,7 +458,7 @@ namespace NFT_Token
             return true;
         }
 
-        private static bool DeployFirstNft(byte[] address)
+        private static bool DeployFirstNft(byte[] address, byte[] properties)
         {
             if (address.Length != 20) return false;
 
@@ -471,14 +470,11 @@ namespace NFT_Token
             NFTInfo newNftInfo = CreateNft(address, new byte[] { }, 1);
 
             //创始证书自动激活
-            newNftInfo.IsActivated = true;
-
-            string properties = "{\"name\": \"Partner certificate\" , \"description\": \"{" + 1 + "}\", \"url\":\"\" }";
-            byte[] propertiesByteArray = properties.AsByteArray();
+            newNftInfo.IsActivated = true;           
 
             byte[] propertiesKey = PropertiesKey(newNftInfo.TokenId);
 
-            Storage.Put(Context(), propertiesKey, propertiesByteArray);
+            Storage.Put(Context(), propertiesKey, properties);
 
             //保存nft信息
             SaveNftInfo(newNftInfo);
@@ -489,7 +485,7 @@ namespace NFT_Token
             Storage.Put(Context(), "activatedCount", 1);
 
             //notify
-            MintedToken(address, newNftInfo.TokenId, propertiesByteArray, null);
+            MintedToken(address, newNftInfo.TokenId, properties, null);
 
             Storage.Put(Context(), "initDeploy", 1);
 
