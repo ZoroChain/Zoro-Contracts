@@ -33,6 +33,15 @@ namespace BrokerContract
         [DisplayName("removedFromWhitelist")]
         public static event Action<byte[]> EmitRemovedFromWhitelist; // (scriptHash)
 
+        [DisplayName("feeAddressSet")]
+        public static event Action<byte[]> EmitFeeAddressSet; // (address)
+
+        [DisplayName("dealerAddressSet")]
+        public static event Action<byte[]> EmitDealerAddressSet; // (address)
+
+        [DisplayName("operatorAddressSet")]
+        public static event Action<byte[]> EmitOperatorAddressSet; // (address)
+
         // superAdmin
         private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
 
@@ -129,6 +138,7 @@ namespace BrokerContract
                     var opera = (byte[])args[0];
                     if (opera.Length != 20) return false;
                     Storage.Put(Context(), "operator", opera);
+                    EmitOperatorAddressSet(opera);
                     return true;
                 }
 
@@ -516,6 +526,7 @@ namespace BrokerContract
                 Storage.Put(Context(), "state", Inactive);
             if (setValue == 2)
                 Storage.Put(Context(), "state", AllStop);
+            Runtime.Notify("setState", setValue);
             return true;
         }
 
@@ -530,6 +541,7 @@ namespace BrokerContract
         {
             if (feeAddress.Length != 20) return false;
             Storage.Put(Context(), "feeAddress", feeAddress);
+            EmitFeeAddressSet(feeAddress);
             return true;
         }
 
@@ -537,6 +549,7 @@ namespace BrokerContract
         {
             if (dealerAddress.Length != 20) return false;
             Storage.Put(Context(), "dealerAddress", dealerAddress);
+            EmitDealerAddressSet(dealerAddress);
             return true;
         }
 

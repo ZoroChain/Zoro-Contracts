@@ -47,6 +47,7 @@ namespace BCTContract
                         Storage.Put(Context(), "state", Inactive);
                     if (setValue == 2)
                         Storage.Put(Context(), "state", AllStop);
+                    Runtime.Notify("setState", setValue);
                     return true;
                 }
 

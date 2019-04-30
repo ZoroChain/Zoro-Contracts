@@ -35,7 +35,7 @@ namespace NFTContract
         /// </summary>
         public static object Main(string method, object[] args)
         {
-            var magicstr = "NFT Contract Template v0.1";
+            var magicstr = "NFT Contract Template v0.3";
             if (Runtime.Trigger == TriggerType.Application)
             {
                 var entryscript = ExecutionEngine.EntryScriptHash;

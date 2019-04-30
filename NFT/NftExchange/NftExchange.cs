@@ -135,7 +135,6 @@ namespace NftExchange
                     var opera = (byte[])args[0];
                     if (opera.Length != 20) return false;
                     Storage.Put(Context(), "operator", opera);
-
                     EmitOperatorAddressSet(opera);
                     return true;
                 }               
@@ -547,6 +546,7 @@ namespace NftExchange
                 Storage.Put(Context(), "state", Inactive);
             if (setValue == 2)
                 Storage.Put(Context(), "state", AllStop);
+            Runtime.Notify("setState", setValue);
             return true;
         }
 
