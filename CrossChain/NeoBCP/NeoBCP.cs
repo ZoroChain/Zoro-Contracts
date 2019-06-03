@@ -16,7 +16,7 @@ namespace BCTContract
         public static event Action<byte[], byte[], BigInteger> Approved;//(byte[] from, byte[] to, BigInteger value)
 
         //管理员账户，改成自己测试用的的
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("ATpJ9KzkZjN9PHTVuDNDB1dscboHU8hAxb");
 
         private static readonly byte[] Active = { };       // 所有接口可用
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
@@ -150,7 +150,7 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "BlaCat Point";//名称
+        public static string Name() => "BitCoin Play";//名称
 
         public static string Symbol() => "BCP";//简称
 
