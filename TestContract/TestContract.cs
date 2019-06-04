@@ -65,6 +65,14 @@ namespace TestContract
                     return aa;
                 }
 
+                if (method == "balanceOf1")
+                {
+                    var asset_id = new byte[] { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+                    byte[] address = (byte[])args[0];
+                    var aa = NativeAsset.Call("BalanceOf", asset_id, address).AsBigInteger();
+                    return aa;
+                }
+
                 if (method == "transferFrom")
                 {
                     byte[] asset_id = (byte[])args[0];

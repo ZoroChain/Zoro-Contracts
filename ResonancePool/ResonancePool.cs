@@ -68,10 +68,10 @@ namespace ResonancePool
                     return true;
                 }
 
-                if (operation == "resonance") //address, assetID, bcpId, value
+                if (operation == "resonance") //address, assetID, value
                 {
-                    if (args.Length != 4) return false;
-                    return Resonance((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
+                    if (args.Length != 3) return false;
+                    return Resonance((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
                 }
 
                 var operatorAddr = Storage.Get(Context(), "operator");
@@ -100,32 +100,37 @@ namespace ResonancePool
             return false;
         }
 
-        private static bool Resonance(byte[] address, byte[] assetId, byte[] bcpId, BigInteger value)
+        private static bool Resonance(byte[] address, byte[] assetId, BigInteger value)
         {
             // Check that the contract is safe
-            //if (!GetIsWhitelisted(assetId)) return false;
+            if (!GetIsWhitelisted(assetId)) return false;
+
+            var bcpHash = new byte[] { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
             byte[] contract = ExecutionEngine.ExecutingScriptHash;
-            bool success = false;
+            bool transferFromSuccess = false;
 
             //转入 BTC/NEO 等
             var args = new object[] { address, contract, value };
             var deleCall = (deleContract)assetId.ToDelegate();
-            success = (bool)deleCall("transferFrom", args);
+            transferFromSuccess = (bool)deleCall("transferFrom", args);
 
-            if (success)
+            if (transferFromSuccess)
             {
                 //共振池总层数
-                BigInteger allLayer = 8;
+                BigInteger allLayer = 3756;
+                //每一层 BTC 数
                 BigInteger perLayerNum = 10 * 100000000;
 
                 //na1+n(n-1)d/2
                 //BigInteger allAmount = allLayer * 10 + allLayer * (allLayer - 1) * 10 / 2;
 
-                //共振池 BCP 余额
-                BigInteger balance = new BigInteger(NativeAsset.Call("BalanceOf", bcpId, contract));
+                var balanceBytes = NativeAsset.Call("BalanceOf", bcpHash, contract);                                
 
-                Runtime.Notify(0, balance);//debug
+                //共振池 BCP 余额
+                BigInteger balance = balanceBytes.AsBigInteger();
+
+                if (balance <= 0) throw new Exception("Resonance balance not enough!");
 
                 //当前共振池所在层
                 BigInteger curLayer = Storage.Get(Context(), "curLayer").AsBigInteger();
@@ -133,21 +138,29 @@ namespace ResonancePool
                 BigInteger newLayer = curLayer;
 
                 //可兑换 BCP 数量
-                BigInteger amount = 0;
+                BigInteger amount;
 
                 //当前层 BCP 余额 = 共振池余额 - 当前层以下所有层的总和
                 BigInteger curLayerBalance = balance - ((curLayer - 1) * perLayerNum + (curLayer - 1) * (curLayer - 2) * perLayerNum / 2);
 
+                if (curLayerBalance <= 0) ;
+
                 //当前层可供兑换的 BTC 额度
                 BigInteger curLayerBtcLines = curLayerBalance / curLayer;
 
+                //当前层不够兑换
                 if (value >= curLayerBtcLines)
                 {
+                    //池子中代币不足
+                    if (value > curLayerBtcLines && newLayer <= 1) throw new Exception("Resonance balance not enough!");
+
                     amount = curLayerBalance;
 
                     //未兑换的 BTC
                     BigInteger remainingBtc = value - curLayerBtcLines;
                     BigInteger n = remainingBtc / perLayerNum;
+
+                    //10 的整数倍部分处理，10 个兑换一层
                     for (int i = 1; i <= n; i++)
                     {
                         amount += perLayerNum * (curLayer - i);
@@ -155,28 +168,32 @@ namespace ResonancePool
 
                     //整除 10 剩余部分
                     amount += (remainingBtc - n * perLayerNum) * (curLayer - n - 1);
+
+                    //更新当前层高度
                     newLayer = curLayer - n - 1;
                 }
+
+                //当前层内足够兑换
                 else
                 {
                     amount = curLayer * value;
                 }
 
-                Runtime.Notify(0, amount);
+                if (amount <= 0) throw new Exception("Invalid available amount!");
 
-                success = NativeAsset.Call("TransferApp", bcpId, contract, address, amount);
+                bool TransferAppSuccess = NativeAsset.Call("TransferApp", bcpHash, contract, address, amount);
 
-                if (success)
+                if (TransferAppSuccess)
                 {
                     Storage.Put(Context(), "curLayer", newLayer);
                     EmitResonance(address, assetId, value, amount);
+                    return true;
                 }
 
                 else
                 {
                     throw new Exception("Invalid available balance!");
                 }
-
             }
 
             return false;
@@ -247,37 +264,7 @@ namespace ResonancePool
 
         private static StorageContext Context() => Storage.CurrentContext;
 
-        private static byte[] WhitelistKey(byte[] assetId) => "whiteList".AsByteArray().Concat(assetId);
+        private static byte[] WhitelistKey(byte[] assetId) => "whiteList".AsByteArray().Concat(assetId);    
 
-        /// <summary>
-        /// 设置可以使用Bancor的白名单
-        /// </summary>
-        /// <param name="key">nep5资产hash</param>
-        /// <param name="admin">代币管理员地址</param>
-        /// <returns></returns>
-        public static bool SetWhiteList(byte[] key, byte[] admin)
-        {
-            StorageMap whiteListMap = Storage.CurrentContext.CreateMap("whiteListMap");
-            byte[] whiteListBytes = whiteListMap.Get("whiteList");
-            Map<byte[], byte[]> map = new Map<byte[], byte[]>();
-            if (whiteListBytes.Length > 0)
-                map = whiteListBytes.Deserialize() as Map<byte[], byte[]>;
-            map[key] = admin;
-            whiteListMap.Put("whiteList", map.Serialize());
-            return true;
-        }       
-
-        public static object TransferApp(byte[] assetid, byte[] to, BigInteger amount)
-        {
-            object[] _p = new object[3] { ExecutionEngine.ExecutingScriptHash, to, amount };
-            deleContract call = (deleContract)assetid.ToDelegate();
-            return call("transfer_app", _p);
-        }               
-
-        public static void SetTxUsed(byte[] txid)
-        {
-            StorageMap txInfoMap = Storage.CurrentContext.CreateMap("txInfoMap");
-            txInfoMap.Put(txid, 1);
-        }
     }
 }
