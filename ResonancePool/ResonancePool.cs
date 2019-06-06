@@ -29,8 +29,8 @@ namespace ResonancePool
         public static event Action<byte[], byte[], BigInteger> EmitWithdrawn; // (address, assetID, amount)
 
         // Contract States
-        private static readonly byte[] Active = { };       // 所有接口可用
-        private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
+        private static readonly byte[] Active = { };          // 所有接口可用
+        private static readonly byte[] Inactive = { 0x01 };   //只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
         public static object Main(string operation, object[] args)
@@ -90,7 +90,7 @@ namespace ResonancePool
                 }
 
                 //withdraw btc
-                if (operation == "withdraw") // address, withdrawAssetId, withdrawAmount, isGlobal
+                if (operation == "withdraw") // address, withdrawAssetId, withdrawAmount
                 {
                     if (args.Length != 3) return false;
                     return Withdrawal((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
@@ -143,7 +143,7 @@ namespace ResonancePool
                 //当前层 BCP 余额 = 共振池余额 - 当前层以下所有层的总和
                 BigInteger curLayerBalance = balance - ((curLayer - 1) * perLayerNum + (curLayer - 1) * (curLayer - 2) * perLayerNum / 2);
 
-                if (curLayerBalance <= 0) ;
+                if (curLayerBalance <= 0) throw new Exception("Resonance balance not enough!");
 
                 //当前层可供兑换的 BTC 额度
                 BigInteger curLayerBtcLines = curLayerBalance / curLayer;
