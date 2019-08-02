@@ -43,7 +43,7 @@ namespace BrokerContract
         public static event Action<byte[]> EmitOperatorAddressSet; // (address)
 
         // superAdmin
-        private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
+        private static readonly byte[] superAdmin = "AKMd4UQRGRAGr2sLmBCbfkPDzyQRuhm5Xz".ToScriptHash();
 
         // Contract States
         private static readonly byte[] Active = { };       // 所有接口可用

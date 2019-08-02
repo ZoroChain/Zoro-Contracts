@@ -149,9 +149,9 @@ namespace BCTContract
 
         }
 
-        public static string Name() => "ABC";//名称
+        public static string Name() => "ABC Coin";//名称
 
-        public static string Symbol() => "ABC Coin";//简称
+        public static string Symbol() => "ABC";//简称
 
         public static byte Decimals() => 8;//精度
 

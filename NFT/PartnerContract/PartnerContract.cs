@@ -13,7 +13,7 @@ namespace NFT_Token
     /// </summary>
     public class NFTContract : SmartContract
     {        
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("AGc2HfoP5w823frEnDo2j3cnaJNcMsS1iY");               
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("ARUBmBCy55w5vb4GiV54MJyFd6wCz5fUBU");               
 
         [DisplayName("mintToken")]
         public static event Action<byte[], byte[], byte[], byte[]> MintedToken;//(byte[] to, byte[] tokenId, byte[] properties, byte[] inviterTokenId);

@@ -47,7 +47,7 @@ namespace NftExchange
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
         // superAdmin
-        private static readonly byte[] superAdmin = "AGZqPBPbkGoVCQTGSpcyBZRSWJmvdbPD2s".ToScriptHash();
+        private static readonly byte[] superAdmin = "ATwEL2zPjLe8XPEbHRXepjtNWYRhJuSW4f".ToScriptHash();
 
         public static object Main(string operation, object[] args)
         {

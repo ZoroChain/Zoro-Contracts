@@ -8,8 +8,8 @@
     <ProjectGuid>{967600CF-3018-43BE-81E4-23E74D9C50DE}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NeoBCP</RootNamespace>
-    <AssemblyName>NeoBCP</AssemblyName>
+    <RootNamespace>NEO_ZORO</RootNamespace>
+    <AssemblyName>NEO_ZORO</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -45,7 +45,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="NeoBCP.cs" />
+    <Compile Include="ZORO.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

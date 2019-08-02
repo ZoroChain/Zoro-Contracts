@@ -17,7 +17,7 @@ namespace TestContract
 
         public static object Main(string method, object[] args)
         {
-            var magicstr = "Test_Contract_v0.34";
+            var magicstr = "Test_Contract_v0.35";
 
             if (Runtime.Trigger == TriggerType.Application)
             {
@@ -32,6 +32,18 @@ namespace TestContract
 
                     if (!Runtime.CheckWitness((byte[])args[1])) return false;
                     Notify((byte[])args[1], 2);
+                }
+
+                if (method == "set")
+                {
+                    byte[] key = (byte[])args[0];
+                    byte[] data = (byte[])args[1];
+                    Storage.Put(Storage.CurrentContext, key, data);
+                }
+                if (method == "get")
+                {
+                    byte[] key = (byte[])args[0];
+                    return Storage.Get(Storage.CurrentContext, key);
                 }
 
                 if (method == "test")
@@ -157,7 +169,7 @@ namespace TestContract
 
     }
 
-    public class TransferInfo
+    public class TransferInfo   
     {
         public UInt160 from;
         public UInt160 to;

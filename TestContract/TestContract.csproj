@@ -45,8 +45,9 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml" />
-    <Reference Include="Zoro">
-      <HintPath>..\..\..\BlaCatEx\Zoro-Gui\Zoro-Gui\Zoro.dll</HintPath>
+    <Reference Include="Zoro, Version=0.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\BlaCat\Utility\Zoro.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
