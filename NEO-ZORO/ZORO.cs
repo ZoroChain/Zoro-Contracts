@@ -5,7 +5,7 @@ using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 
-namespace BCTContract
+namespace ZOROContract
 {
     public class ZORO : SmartContract
     {
