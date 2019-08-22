@@ -8,6 +8,10 @@ namespace LockContract
 {
     public class LockContract : SmartContract
     {
+        //管理员设置解锁时间和比例
+        //超级管理员可以提取所有资产、停用合约
+        //各类资产通用
+        //可以方便查询锁仓数量和解锁时间、数量
         public static bool Main(string operation, object[] args)
         {
             if (Runtime.Trigger == TriggerType.Application)
