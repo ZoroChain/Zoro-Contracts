@@ -29,7 +29,7 @@ namespace LockContract
         [DisplayName("unlock")]
         public static event Action<byte[], byte[], byte[], BigInteger> EmitUnlocked; // (locker, assetId, toAddress, amount)
 
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AM4Cea17ywkNKFnSDMRLzKrS37xvWGLob3");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AHNA9H4EpxNidE9Y34N43AXynP9R67yvN8");
 
         public static object Main(string operation, object[] args)
         {
@@ -59,7 +59,11 @@ namespace LockContract
 
                     if (lockBalance <= 0) return false;
 
-                    BigInteger withdrawAmount = timeInterval / unlockInterval * unlockAmount;
+                    if (timeInterval < unlockInterval) return 0;
+
+                    BigInteger multiple = timeInterval / unlockInterval;
+
+                    BigInteger withdrawAmount = multiple * unlockAmount;
 
                     if (lockBalance < withdrawAmount)
                         withdrawAmount = lockBalance;
@@ -119,7 +123,8 @@ namespace LockContract
                 if (operation == "lock") // (txid, locker, assetID, isGlobal)
                 {
                     if (args.Length != 4) return false;
-                    return Deposit((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
+                    if (!Runtime.CheckWitness(superAdmin)) return false;
+                    return Lock((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
                 }
 
                 //取钱 提现
@@ -150,7 +155,11 @@ namespace LockContract
 
                     if (lockBalance <= 0) return false;
 
-                    BigInteger withdrawAmount = timeInterval / unlockInterval * unlockAmount;
+                    if (timeInterval < unlockInterval) return false;
+
+                    BigInteger multiple = timeInterval / unlockInterval;
+
+                    BigInteger withdrawAmount = multiple * unlockAmount;
 
                     if (lockBalance < withdrawAmount)
                         withdrawAmount = lockBalance;
@@ -204,7 +213,7 @@ namespace LockContract
             return true;
         }
 
-        private static bool Deposit(byte[] txid, byte[] locker, byte[] assetId, BigInteger isGlobal)
+        private static bool Lock(byte[] txid, byte[] locker, byte[] assetId, BigInteger isGlobal)
         {          
             if (TxidUsed(txid))
                 return false;
