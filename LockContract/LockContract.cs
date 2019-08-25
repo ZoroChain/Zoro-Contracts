@@ -68,29 +68,29 @@ namespace LockContract
                 }
 
                 //查询解锁条件
-                if (operation == "getUnlockInterval")//locker,assetId
+                if (operation == "getUnlockInterval")// locker,assetId
                 {
                     return GetUnlockInterval((byte[])args[0], (byte[])args[1]);
                 }
-                if (operation == "getUnlockAmount")//locker,assetId
+                if (operation == "getUnlockAmount")// locker,assetId
                 {
                     return GetUnlockAmount((byte[])args[0], (byte[])args[1]);
                 }
 
                 //查询当前锁仓数额
-                if (operation == "getLockAomunt") //locker,assetId
+                if (operation == "getLockAomunt") // locker,assetId
                 {
                     return GetBalance((byte[])args[0], (byte[])args[1]);
                 }
 
                 //查询上次锁仓刷新时间
-                if (operation == "getLockTimestamp")//locker,assetId
+                if (operation == "getLockTimestamp")// locker,assetId
                 {
                     return GetLockTimestamp((byte[])args[0], (byte[])args[1]);
                 }
 
                 //设置提取条件 提取地址，资产ID，解锁间隔，每次解锁数额
-                if (operation == "setCondition") //(locker,assetID,unlockInterval,unlockAmount)
+                if (operation == "setCondition") // locker,assetID,unlockInterval,unlockAmount
                 {
                     if (args.Length != 4) return false;
                     if (!Runtime.CheckWitness(superAdmin)) return false;
@@ -116,14 +116,14 @@ namespace LockContract
                 }
 
                 //存钱 锁仓
-                if (operation == "lock") // (txid, assetID, isGlobal)
+                if (operation == "lock") // (txid, locker, assetID, isGlobal)
                 {
-                    if (args.Length != 3) return false;
-                    return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
+                    if (args.Length != 4) return false;
+                    return Deposit((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
                 }
 
                 //取钱 提现
-                if (operation == "withdraw") //locker, assetId, address, isGlobal
+                if (operation == "withdraw") // locker, assetId, address, isGlobal
                 {
                     if (args.Length != 4) return false;
 
@@ -204,7 +204,7 @@ namespace LockContract
             return true;
         }
 
-        private static bool Deposit(byte[] txid, byte[] assetId, BigInteger isGlobal)
+        private static bool Deposit(byte[] txid, byte[] locker, byte[] assetId, BigInteger isGlobal)
         {          
             if (TxidUsed(txid))
                 return false;
@@ -218,8 +218,8 @@ namespace LockContract
 
                 if (tx.From.Length == 20 && tx.Value > 0 && tx.To == lockAddress)
                 {
-                    IncreaseBalance(tx.From, assetId, tx.Value);
-                    EmitLocked(tx.From, assetId, tx.Value);
+                    IncreaseBalance(locker, assetId, tx.Value);
+                    EmitLocked(locker, assetId, tx.Value);
                 }
             }
             else
@@ -228,8 +228,8 @@ namespace LockContract
 
                 if (tx.from.Length == 20 && tx.value > 0 && tx.to == lockAddress)
                 {
-                    IncreaseBalance(tx.from, assetId, tx.value);
-                    EmitLocked(tx.from, assetId, tx.value);
+                    IncreaseBalance(locker, assetId, tx.value);
+                    EmitLocked(locker, assetId, tx.value);
                 }
             }
 
