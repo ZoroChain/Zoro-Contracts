@@ -9,10 +9,16 @@ namespace LockContract
 {
     public class LockContract : SmartContract
     {
-        //管理员设置解锁时间和比例
-        //超级管理员可以提取所有资产、停用合约
+        //先用锁仓的账户往合约转账，用Txid来完成锁仓，每笔锁仓的Key为锁仓账户地址+资产ID
+
+        //解锁后的提现需要锁仓账户签名，提现地址可以是任意地址
+
+        //管理员设置解锁时间间隔和每次解锁数额
+        //管理员可以提取所有已锁资产
         //各类资产通用
-        //可以方便查询锁仓数量和解锁时间、数量
+        //可以查询锁仓数量、当前可解锁数额
+        //可查询解锁条件
+        //查询上次解锁提现时间
         //Key address+assetId
 
         public delegate object NEP5Contract(string method, object[] args);
@@ -21,9 +27,9 @@ namespace LockContract
         public static event Action<byte[], byte[], BigInteger> EmitLocked; // (address, assetID, amount)
 
         [DisplayName("unlock")]
-        public static event Action<byte[], byte[], byte[], BigInteger> EmitUnlocked; // (locker, address, assetID, amount)
+        public static event Action<byte[], byte[], byte[], BigInteger> EmitUnlocked; // (locker, assetId, toAddress, amount)
 
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("ARhGmWHsVR4bjfWLrxTfFWT6rktwwVVGBF");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("AM4Cea17ywkNKFnSDMRLzKrS37xvWGLob3");
 
         public static object Main(string operation, object[] args)
         {
@@ -62,11 +68,11 @@ namespace LockContract
                 }
 
                 //查询解锁条件
-                if (operation == "unlockInterval")//locker,assetId
+                if (operation == "getUnlockInterval")//locker,assetId
                 {
                     return GetUnlockInterval((byte[])args[0], (byte[])args[1]);
                 }
-                if (operation == "unlockAmount")//locker,assetId
+                if (operation == "getUnlockAmount")//locker,assetId
                 {
                     return GetUnlockAmount((byte[])args[0], (byte[])args[1]);
                 }
@@ -78,12 +84,12 @@ namespace LockContract
                 }
 
                 //查询上次锁仓刷新时间
-                if(operation== "getLockTimestamp")//locker,assetId
+                if (operation == "getLockTimestamp")//locker,assetId
                 {
                     return GetLockTimestamp((byte[])args[0], (byte[])args[1]);
                 }
 
-                //设置提取条件 提取地址，资产ID，解锁间隔，每次解锁百分比
+                //设置提取条件 提取地址，资产ID，解锁间隔，每次解锁数额
                 if (operation == "setCondition") //(locker,assetID,unlockInterval,unlockAmount)
                 {
                     if (args.Length != 4) return false;
@@ -92,11 +98,11 @@ namespace LockContract
                 }
 
                 //管理员可以取走全部资产
-                if (operation == "withdrawAll") // toAddress, assetId, amount, isGlobal
+                if (operation == "withdrawAll") // locker, assetId, toAddress, isGlobal
                 {
                     if (args.Length != 4) return false;
                     if (!Runtime.CheckWitness(superAdmin)) return false;
-                    WithdrawalAll((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
+                    WithdrawalAll((byte[])args[0], (byte[])args[1], (byte[])args[2], (BigInteger)args[3]);
                     return true;
                 }
 
@@ -110,16 +116,16 @@ namespace LockContract
                 }
 
                 //存钱 锁仓
-                if (operation == "lock") // (txid, assetID, value, isGlobal)
+                if (operation == "lock") // (txid, assetID, isGlobal)
                 {
-                    if (args.Length != 4) return false;
-                    return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
+                    if (args.Length != 3) return false;
+                    return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
                 }
 
                 //取钱 提现
                 if (operation == "withdraw") //locker, assetId, address, isGlobal
                 {
-                    if (args.Length != 5) return false;
+                    if (args.Length != 4) return false;
 
                     byte[] locker = (byte[])args[0];
                     if (!Runtime.CheckWitness(locker)) return false;
@@ -151,17 +157,6 @@ namespace LockContract
 
                     return Withdrawal(locker, assetId, toAddress, withdrawAmount, (BigInteger)args[3]);
                 }
-
-                // 设置合约状态          
-                if (operation == "locktest")
-                {
-                    Header header = Blockchain.GetHeader(Blockchain.GetHeight());
-                    if (header.Timestamp < 1559636423)
-                        Runtime.Notify(0, header.Timestamp);
-                    else
-                        Runtime.Notify(1, header.Timestamp);
-                }
-                return false;
             }
             return false;
         }
@@ -183,14 +178,14 @@ namespace LockContract
 
         private static BigInteger GetUnlockAmount(byte[] locker, byte[] assetId)
         {
-            byte[] amountKey = TimeConditionKey(locker, assetId);
+            byte[] amountKey = AmountConditionKey(locker, assetId);
             var amountCondition = Storage.Get(Context(), amountKey);
             return amountCondition.AsBigInteger();
         }
 
         private static BigInteger GetUnlockInterval(byte[] locker, byte[] assetId)
         {
-            byte[] percentageKey = AmountConditionKey(locker, assetId);
+            byte[] percentageKey = TimeConditionKey(locker, assetId);
             var percentageCondition = Storage.Get(Context(), percentageKey);
             return percentageCondition.AsBigInteger();
         }
@@ -209,7 +204,7 @@ namespace LockContract
             return true;
         }
 
-        private static bool Deposit(byte[] txid, byte[] assetId, BigInteger value, BigInteger isGlobal)
+        private static bool Deposit(byte[] txid, byte[] assetId, BigInteger isGlobal)
         {          
             if (TxidUsed(txid))
                 return false;
@@ -223,8 +218,8 @@ namespace LockContract
 
                 if (tx.From.Length == 20 && tx.Value > 0 && tx.To == lockAddress)
                 {
-                    IncreaseBalance(tx.From, assetId, value);
-                    EmitLocked(tx.From, assetId, value);
+                    IncreaseBalance(tx.From, assetId, tx.Value);
+                    EmitLocked(tx.From, assetId, tx.Value);
                 }
             }
             else
@@ -233,8 +228,8 @@ namespace LockContract
 
                 if (tx.from.Length == 20 && tx.value > 0 && tx.to == lockAddress)
                 {
-                    IncreaseBalance(tx.from, assetId, value);
-                    EmitLocked(tx.from, assetId, value);
+                    IncreaseBalance(tx.from, assetId, tx.value);
+                    EmitLocked(tx.from, assetId, tx.value);
                 }
             }
 
@@ -267,35 +262,38 @@ namespace LockContract
 
                 SetLockTimestamp(locker, assetId);
 
-                EmitUnlocked(locker, address, assetId, amount);
+                EmitUnlocked(locker, assetId, address, amount);
                 return true;
             }
             else
                 throw new Exception("Failed to withdrawal transfer");
         }
 
-        private static bool WithdrawalAll(byte[] address, byte[] assetId, BigInteger amount, BigInteger isGlobal)
+        private static bool WithdrawalAll(byte[] locker, byte[] assetId, byte[] address, BigInteger isGlobal)
         {
             if (address.Length != 20) return false;
 
-            byte[] from = ExecutionEngine.ExecutingScriptHash;        
+            byte[] from = ExecutionEngine.ExecutingScriptHash;
+
+            BigInteger balance = GetBalance(locker, assetId);
 
             bool success = false;            
 
             if (isGlobal == 1)
             {
-                success = NativeAsset.Call("TransferApp", assetId, from, address, amount);
+                success = NativeAsset.Call("TransferApp", assetId, from, address, balance);
             }
             else
             {
-                var args = new object[] { from, address, amount };
+                var args = new object[] { from, address, balance };
                 var contract = (NEP5Contract)assetId.ToDelegate();
                 success = (bool)contract("transferApp", args);
             }
 
             if (success)
             {
-                EmitUnlocked(superAdmin, address, assetId, amount);
+                ReduceBalance(locker, assetId, balance);
+                EmitUnlocked(locker, assetId, address, balance);
                 return true;
             }
             else
