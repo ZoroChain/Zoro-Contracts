@@ -24,9 +24,9 @@ namespace BCTContract
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
-        public static string Name() => "Zoro-NEO";//名称
+        public static string Name() => "Zoro-USDT";//名称
 
-        public static string Symbol() => "NEO";//简称
+        public static string Symbol() => "USDT";//简称
 
         public static object Main(string method, object[] args)
         {

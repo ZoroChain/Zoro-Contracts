@@ -23,7 +23,7 @@ namespace LockContract
         [DisplayName("unlock")]
         public static event Action<byte[], byte[], byte[], BigInteger> EmitUnlocked; // (locker, address, assetID, amount)
 
-        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("ARhGmWHsVR4bjfWLrxTfFWT6rktwwVVGBF");
+        private static readonly byte[] superAdmin = Neo.SmartContract.Framework.Helper.ToScriptHash("");
 
         public static object Main(string operation, object[] args)
         {
@@ -83,7 +83,7 @@ namespace LockContract
                     return GetLockTimestamp((byte[])args[0], (byte[])args[1]);
                 }
 
-                //设置提取条件 提取地址，资产ID，解锁间隔，每次解锁百分比
+                //设置提取条件 提取地址，资产ID，解锁间隔，每次解锁数额
                 if (operation == "setCondition") //(locker,assetID,unlockInterval,unlockAmount)
                 {
                     if (args.Length != 4) return false;
@@ -110,16 +110,16 @@ namespace LockContract
                 }
 
                 //存钱 锁仓
-                if (operation == "lock") // (txid, assetID, value, isGlobal)
+                if (operation == "lock") // (txid, assetID, isGlobal)
                 {
                     if (args.Length != 4) return false;
-                    return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2], (BigInteger)args[3]);
+                    return Deposit((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
                 }
 
                 //取钱 提现
                 if (operation == "withdraw") //locker, assetId, address, isGlobal
                 {
-                    if (args.Length != 5) return false;
+                    if (args.Length != 4) return false;
 
                     byte[] locker = (byte[])args[0];
                     if (!Runtime.CheckWitness(locker)) return false;
@@ -209,7 +209,7 @@ namespace LockContract
             return true;
         }
 
-        private static bool Deposit(byte[] txid, byte[] assetId, BigInteger value, BigInteger isGlobal)
+        private static bool Deposit(byte[] txid, byte[] assetId, BigInteger isGlobal)
         {          
             if (TxidUsed(txid))
                 return false;
@@ -223,8 +223,8 @@ namespace LockContract
 
                 if (tx.From.Length == 20 && tx.Value > 0 && tx.To == lockAddress)
                 {
-                    IncreaseBalance(tx.From, assetId, value);
-                    EmitLocked(tx.From, assetId, value);
+                    IncreaseBalance(tx.From, assetId, tx.Value);
+                    EmitLocked(tx.From, assetId, tx.Value);
                 }
             }
             else
@@ -233,8 +233,8 @@ namespace LockContract
 
                 if (tx.from.Length == 20 && tx.value > 0 && tx.to == lockAddress)
                 {
-                    IncreaseBalance(tx.from, assetId, value);
-                    EmitLocked(tx.from, assetId, value);
+                    IncreaseBalance(tx.from, assetId, tx.value);
+                    EmitLocked(tx.from, assetId, tx.value);
                 }
             }
 
