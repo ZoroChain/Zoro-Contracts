@@ -25,6 +25,9 @@ namespace NFTContract
         [DisplayName("modifyProperties")]
         public static event Action<byte[], byte[]> ModifyProperties; //(byte[] tokenId, byte[] newProperties)
 
+        [DisplayName("modifyRwData")]
+        public static event Action<byte[], byte[]> ModifyRwData; //(byte[] tokenId, byte[] newRwData)
+
         [DisplayName("freeze")]
         public static event Action<byte[]> Frozen; //(tokenId)
 
@@ -126,7 +129,7 @@ namespace NFTContract
 
                     if (rwData.Length == 0) return false;
                     Storage.Put(Context(), TokenRwDataKey(tokenId), rwData);
-
+                    ModifyRwData(tokenId, rwData);
                     return true;
                 }
                 
