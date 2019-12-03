@@ -25,15 +25,6 @@ namespace NFTContract
         [DisplayName("modifyProperties")]
         public static event Action<byte[], byte[]> ModifyProperties; //(byte[] tokenId, byte[] newProperties)
 
-        [DisplayName("modifyRwData")]
-        public static event Action<byte[], byte[]> ModifyRwData; //(byte[] tokenId, byte[] newRwData)
-
-        [DisplayName("freeze")]
-        public static event Action<byte[]> Frozen; //(tokenId)
-
-        [DisplayName("unfreeze")]
-        public static event Action<byte[]> UnFrozen; //(tokenId)
-
         //super admin address
         private static readonly byte[] superAdmin = Helper.ToScriptHash("AcQLYjGbQU2bEQ8RKFXUcf8XvromfUQodq");
 
@@ -63,38 +54,19 @@ namespace NFTContract
                 
                 if (method == "properties") return Storage.Get(Context(), PropertiesKey((byte[])args[0]));
 
-                if (method == "tokenRwData") return Storage.Get(Context(), TokenRwDataKey((byte[])args[0]));
-
-                if (method == "isFrozen") return Storage.Get(Context(), FreezeKey((byte[])args[0])).AsBigInteger();
-
                 if (method == "mintToken") //(address, properties)
                 {
                     if (args.Length != 2) return false;
                     var owner = (byte[])args[0];
                     var properties = (byte[])args[1];
-
+                   
                     if (!Runtime.CheckWitness(superAdmin)) return false;
 
                     if (owner.Length != 20) return false;
                     if (properties.Length > 2048) return false;
 
                     return MintNFT(owner, properties);
-                }
-                
-                //Freeze
-                if (method == "freeze")
-                {
-                    if (args.Length != 1) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    return FreezeNft((byte[])args[0]);
-                }
-                //UnFreeze
-                if (method == "unfreeze")
-                {
-                    if (args.Length != 1) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    return UnFreezeNft((byte[])args[0]);
-                }                
+                }                                             
 
                 if (method == "modifyProperties")
                 {
@@ -102,8 +74,6 @@ namespace NFTContract
                     if (args.Length != 2) return false;
                     var tokenId = (byte[])args[0];
                     var properties = (byte[])args[1];
-
-                    if (IsFrozen(tokenId)) return false;
 
                     if (properties.Length > 2048) return false;
 
@@ -114,24 +84,6 @@ namespace NFTContract
                     ModifyProperties(tokenId, properties);
                     return true;
                 }
-
-                if (method == "modifyRwData")
-                {
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    if (args.Length != 2) return false;
-                    var tokenId = (byte[])args[0];
-                    var rwData = (byte[])args[1];
-
-                    if (IsFrozen(tokenId)) return false;
-
-                    var addr = Storage.Get(Context(), TokenOwnerKey(tokenId));
-                    if (addr.Length != 20) return false;
-
-                    if (rwData.Length == 0) return false;
-                    Storage.Put(Context(), TokenRwDataKey(tokenId), rwData);
-                    ModifyRwData(tokenId, rwData);
-                    return true;
-                }
                 
                 if (method == "transfer")
                 {
@@ -140,8 +92,6 @@ namespace NFTContract
                     byte[] to = (byte[])args[1];
                     byte[] tokenId = (byte[])args[2];
                     if (from.Length != 20 || to.Length != 20) return false;
-
-                    if (IsFrozen(tokenId)) return false;
 
                     if (!Runtime.CheckWitness(from)) return false;
                     if (entryscript != callscript) return false;
@@ -156,7 +106,6 @@ namespace NFTContract
                     byte[] tokenId = (byte[])args[2];
 
                     if (from.Length != 20 || to.Length != 20) return false;
-                    if (IsFrozen(tokenId)) return false;
 
                     if (!Runtime.CheckWitness(from)) return false;
                     if (entryscript != callscript) return false;
@@ -172,7 +121,6 @@ namespace NFTContract
                     byte[] tokenId = (byte[])args[2];
 
                     if (from.Length != 20 || to.Length != 20) return false;
-                    if (IsFrozen(tokenId)) return false;
 
                     return TransferFrom(from, to, tokenId);
                 }
@@ -183,7 +131,6 @@ namespace NFTContract
                     byte[] to = (byte[])args[1];
                     byte[] tokenId = (byte[])args[2];
                     if (from.Length != 20 || to.Length != 20) return false;
-                    if (IsFrozen(tokenId)) return false;
 
                     if (from != callscript) return false;
                     return Transfer(from, to, tokenId);
@@ -191,29 +138,7 @@ namespace NFTContract
             }
 
             return false;
-        }
-
-        private static bool IsFrozen(byte[] tokenId)
-        {
-            if (Storage.Get(Context(), FreezeKey(tokenId)).AsBigInteger() == 1)
-                return true;
-            else
-                return false;                
-        }
-
-        private static bool FreezeNft(byte[] tokenId)
-        {
-            Storage.Put(Context(), FreezeKey(tokenId), 1);
-            Frozen(tokenId);
-            return true;
-        }
-
-        private static bool UnFreezeNft(byte[] tokenId)
-        {
-            Storage.Put(Context(), FreezeKey(tokenId), 0);
-            UnFrozen(tokenId);
-            return true;
-        }
+        }              
 
         private static bool Transfer(byte[] from, byte[] to, byte[] tokenId)
         {
@@ -250,7 +175,7 @@ namespace NFTContract
             var allowanceSpend = Storage.Get(Context(), allowanceKey);
             if (allowanceSpend != from.Concat(to)) return false;
 
-            Storage.Put(Context(), TokenOwnerKey(tokenId), to);
+            Storage.Put(Context(), TokenOwnerKey(tokenId), to);            
             Storage.Delete(Context(), allowanceKey);
 
             var formBalance = Storage.Get(Context(), BalanceKey(from)).AsBigInteger();
@@ -286,7 +211,7 @@ namespace NFTContract
             if (addr.Length > 0) return false;
 
             Storage.Put(Context(), PropertiesKey(tokenId), properties);
-            Storage.Put(Context(), TokenOwnerKey(tokenId), owner);
+            Storage.Put(Context(), TokenOwnerKey(tokenId), owner);                      
 
             var keyTotalSupply = TotalSupplyKey();           
             BigInteger totalSupply = Storage.Get(Context(), keyTotalSupply).AsBigInteger();
@@ -322,12 +247,10 @@ namespace NFTContract
 
         private static StorageContext Context() => Storage.CurrentContext;
         private static byte[] TokenOwnerKey(byte[] tokenId) => new byte[] { 0x10 }.Concat(tokenId);
-        private static byte[] BalanceKey(byte[] owner) => new byte[] { 0x11 }.Concat(owner);        
-        private static byte[] TokenRwDataKey(byte[] tokenId) => new byte[] { 0x13 }.Concat(tokenId);        
+        private static byte[] BalanceKey(byte[] owner) => new byte[] { 0x11 }.Concat(owner);            
         private static byte[] TxidKey(byte[] txid) => new byte[] { 0x15 }.Concat(txid);
         private static byte[] AllowanceKey(byte[] tokenId) => new byte[] { 0x16 }.Concat(tokenId);
-        private static byte[] PropertiesKey(byte[] tokenId) => new byte[] { 0x17 }.Concat(tokenId);
-        private static byte[] FreezeKey(byte[] tokenId) => new byte[] { 0x18 }.Concat(tokenId);
+        private static byte[] PropertiesKey(byte[] tokenId) => new byte[] { 0x17 }.Concat(tokenId);      
         private static string TotalSupplyKey() => "totalSupply";
     }
 

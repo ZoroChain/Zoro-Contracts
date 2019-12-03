@@ -38,16 +38,13 @@ namespace NftExchange
         [DisplayName("dealerAddressSet")]
         public static event Action<byte[]> EmitDealerAddressSet; // (address)
 
-        [DisplayName("operatorAddressSet")]
-        public static event Action<byte[]> EmitOperatorAddressSet; // (address)
-
         // Contract States
         private static readonly byte[] Active = { };       // 所有接口可用
         private static readonly byte[] Inactive = { 0x01 };//只有 invoke 可用
         private static readonly byte[] AllStop = { 0x02 };    //全部接口停用
 
         // superAdmin
-        private static readonly byte[] superAdmin = "ATwEL2zPjLe8XPEbHRXepjtNWYRhJuSW4f".ToScriptHash();
+        private static readonly byte[] superAdmin = "AcQLYjGbQU2bEQ8RKFXUcf8XvromfUQodq".ToScriptHash();
 
         public static object Main(string operation, object[] args)
         {
@@ -127,41 +124,26 @@ namespace NftExchange
                     return CancelOffer(offerHash, deductFee);
                 }
 
-                // 设置交易费收取地址,设置交易员,设置操作员
-                if (operation == "setOperator")
-                {
-                    if (args.Length != 1) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
-                    var opera = (byte[])args[0];
-                    if (opera.Length != 20) return false;
-                    Storage.Put(Context(), "operator", opera);
-                    EmitOperatorAddressSet(opera);
-                    return true;
-                }               
+                // 设置交易费收取地址,设置交易员,设置白名单
+                if (!Runtime.CheckWitness(superAdmin)) return false;
 
                 if (operation == "initialize")
                 {
                     if (args.Length != 2) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return Initialize((byte[])args[0], (byte[])args[1]);
                 }
                 if (operation == "setDealerAddress")
                 {
                     if (args.Length != 1) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return SetDealerAddress((byte[])args[0]);
                 }
 
                 if (operation == "setFeeAddress")
                 {
                     if (args.Length != 1) return false;
-                    if (!Runtime.CheckWitness(superAdmin)) return false;
                     return SetFeeAddress((byte[])args[0]);
                 }
-
-                var operatorAddr = Storage.Get(Context(), "operator");
-                // 操作员签名
-                if (!Runtime.CheckWitness(operatorAddr)) return false;
+               
                 if (operation == "addToWhitelist")
                 {
                     if (args.Length != 1) return false;
@@ -226,7 +208,7 @@ namespace NftExchange
             var offerData = offer.Serialize();
             Storage.Put(Context(), OfferKey(offerHash), offerData);
 
-            // Notify (address, offerHash, offerAssetID, offerAmount, wantAssetID, wantAmount, feeAssetId, feeAmount)
+            // Notify (address, offerHash, nftContract, tokenId, wantAssetID, wantAmount, feeAssetId, feeAmount)
             EmitCreated(makerAddress, offerHash, nftContractHash, sellNftId, acceptAssetId, price, feeAeestId, feeAmount);
             return true;
         }

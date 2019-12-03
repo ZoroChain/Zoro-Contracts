@@ -13,7 +13,6 @@ The operations of the NFT template contract are:
 * balanceOf(owner): returns owner's current total tokens owned
 * getTxInfo(txid): returns transfer's info
 * mintToken(owner, properties): create a new NFT token
-* modifyRwData(token_id, RwData): modify token's read-write data
 * modifyProperties(token_id, newProperties): modify token's read-write data
 * name(): returns name of token
 * ownerOf(token_id): returns owner of a token
@@ -21,7 +20,6 @@ The operations of the NFT template contract are:
 * supportedStandards(): returns NEP-10
 * symbol(): returns token symbol
 * totalSupply(): returns the total token supply deployed in the system
-* tokenRwData(tokein_id): returns token's read-write data
 * transfer(from, to, token_id): transfers a token
 * transferApp(from, to, token_id): transfers a token, the from must be calling contract hash
 * transferFrom(from, to, token_id): transfers a token by authorized spender
@@ -31,7 +29,7 @@ The events of the NFT template contract are:
 
 * transfer(byte[] from , byte[] to, byte[] TokenId):transfers a token
 * mintToken(byte[] address, byte[] TokenId): create a new NFT token
-
+* modifyProperties(byte[] tokenId, byte[] newProperties)
 ### Properties
 
 The properties is the basic information of NFT, including name, description and other fields. It has a uniform json format. When NFT is created, the json properties will be serialized into byte array and stored in NFT properties, which is deserialized into json when used externally, json properties like this:

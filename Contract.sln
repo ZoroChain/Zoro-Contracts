@@ -43,7 +43,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LockContract", "LockContrac
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DestroyContract", "DestroyContract\DestroyContract.csproj", "{406C1936-E9B3-4F40-B235-BFBD5BA12EF0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShPropContract", "ShPropContract\ShPropContract.csproj", "{CFDC7405-DE34-419C-B3F1-4C310EC5F984}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShNftContract", "ShPropContract\ShNftContract.csproj", "{CFDC7405-DE34-419C-B3F1-4C310EC5F984}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
